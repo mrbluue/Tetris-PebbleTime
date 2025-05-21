@@ -11,7 +11,7 @@
     "resources": {
         "media": [
             {
-                "file": "images/Logo_28.png",
+                "file": "images/Logo_25.png",
                 "menuIcon": true,
                 "name": "LOGO",
                 "type": "png"
@@ -26,10 +26,11 @@
     "sdkVersion": "3",
     "shortName": "Tebbletris",
     "targetPlatforms": [
-        "basalt"
+        "basalt",
+        "chalk"
     ],
     "uuid": "9980fd08-2437-4489-813b-cbe8ae824d9c",
-    "versionLabel": "1.3",
+    "versionLabel": "2.0",
     "watchapp": {
         "watchface": false
     }
