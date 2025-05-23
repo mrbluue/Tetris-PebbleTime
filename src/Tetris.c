@@ -9,14 +9,6 @@
 #define GRID_BLOCK_WIDTH 10
 #define GRID_BLOCK_HEIGHT 20
 
-#if defined(PBL_RECT)
-  #define GRID_PIXEL_WIDTH (BLOCK_SIZE * GRID_BLOCK_WIDTH)
-  #define GRID_PIXEL_HEIGHT (BLOCK_SIZE * GRID_BLOCK_HEIGHT)
-
-  #define GRID_ORIGIN_X 0
-  #define GRID_ORIGIN_Y 0
-#endif
-
 #if defined(PBL_PLATFORM_CHALK)
   #define SCREEN_WIDTH 180
   #define SCREEN_HEIGHT 180
@@ -26,6 +18,12 @@
 
   #define GRID_ORIGIN_X ((SCREEN_WIDTH - GRID_PIXEL_WIDTH) / 2)
   #define GRID_ORIGIN_Y ((SCREEN_HEIGHT - GRID_PIXEL_HEIGHT) / 2)
+#else
+  #define GRID_PIXEL_WIDTH (BLOCK_SIZE * GRID_BLOCK_WIDTH)
+  #define GRID_PIXEL_HEIGHT (BLOCK_SIZE * GRID_BLOCK_HEIGHT)
+
+  #define GRID_ORIGIN_X 0
+  #define GRID_ORIGIN_Y 0
 #endif
 
 #define LABEL_HEIGHT 20 
@@ -288,7 +286,7 @@ static void restart_after_loss() {
   load_choice = 0;
   Layer *window_layer = window_get_root_layer(window);
   layer_add_child(window_layer, text_layer_get_layer(title_layer));
-  text_layer_set_text(title_layer, "Tebbletris"); // such a dumb name that's crazy, but a victory for not being eligible for a cease & desist
+  text_layer_set_text(title_layer, "Tebbletris"); 
   layer_add_child(window_layer, text_layer_get_layer(new_game_label_layer));
   layer_add_child(window_layer, text_layer_get_layer(high_score_layer));
   layer_add_child(window_layer, text_layer_get_layer(option_shadows_layer));
@@ -458,6 +456,7 @@ static void click_config_provider(void *context) {
   window_long_click_subscribe(BUTTON_ID_SELECT, 500, select_long_click_handler, NULL);
 
   // Deactivated Up long click and Down long click (didn't like it)
+  // Would love to implement alternative where long pressing just moves it continuously
   // window_long_click_subscribe(BUTTON_ID_UP, 250, up_long_click_handler, NULL);
   // window_long_click_subscribe(BUTTON_ID_DOWN, 250, down_long_click_handler, NULL);
 
@@ -503,15 +502,6 @@ static void draw_bg(Layer *layer, GContext *ctx) {
   GRect color_bg = GRect(0, 0, boundsWidth, boundsHeight);
   graphics_fill_rect(ctx, color_bg, 0, GCornerNone);
 
-  // Attempt at adding a Radial instead of rectangular labels to fit the Time Round aesthetic but meh, we'll see.
-  // TODO - Keeping this as a note for later
-
-  // #if defined(PBL_ROUND)
-  // graphics_context_set_fill_color(ctx, blueishish);
-  // graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, GRID_ORIGIN_X, DEG_TO_TRIGANGLE(45), DEG_TO_TRIGANGLE(135)); // GRID_ORIGIN_X for Radius
-  // graphics_fill_radial(ctx, bounds, GOvalScaleModeFitCircle, GRID_ORIGIN_X, DEG_TO_TRIGANGLE(235), DEG_TO_TRIGANGLE(305)); // 225-10 / 315-10 
-  // #endif
-
   // Game BG.
   graphics_context_set_fill_color(ctx, GColorBlack);
   GRect game_bg = GRect(GRID_ORIGIN_X, GRID_ORIGIN_Y, GRID_PIXEL_WIDTH, GRID_PIXEL_HEIGHT);
@@ -533,12 +523,12 @@ static void draw_bg(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, col_map[nextBlockType]);
 
   #if defined(PBL_ROUND)
-  int sPosX = (GRID_ORIGIN_X+GRID_PIXEL_WIDTH+BLOCK_SIZE*2) + next_block_offset(nextBlockType);
-  int sPosY = GRID_ORIGIN_Y + BLOCK_SIZE*5;
+  int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + BLOCK_SIZE * 2) + next_block_offset(nextBlockType);
+  int sPosY = GRID_ORIGIN_Y + BLOCK_SIZE * 5;
   #else
   // for rectangular screen, center the next block display in the right pane
-  int sPosX = (GRID_ORIGIN_X+GRID_PIXEL_WIDTH+((boundsWidth-GRID_PIXEL_WIDTH)/2)) + next_block_offset(nextBlockType);
-  int sPosY = GRID_ORIGIN_Y + BLOCK_SIZE*2;
+  int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + (boundsWidth - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH)) / 2) + next_block_offset(nextBlockType) - BLOCK_SIZE/2;
+  int sPosY = GRID_ORIGIN_Y + BLOCK_SIZE * 2;
   #endif
 
   for (int i=0; i<4; i++) {
@@ -550,11 +540,11 @@ static void draw_bg(Layer *layer, GContext *ctx) {
   // Game BG grid.
   graphics_context_set_stroke_color(ctx, purple);
   // Draw vertical lines
-  for (int i=GRID_ORIGIN_X; i<(GRID_PIXEL_WIDTH+GRID_ORIGIN_X); i+=BLOCK_SIZE) {
+  for (int i=GRID_ORIGIN_X; i<=(GRID_PIXEL_WIDTH+GRID_ORIGIN_X); i+=BLOCK_SIZE) {
     graphics_draw_line(ctx, GPoint(i, GRID_ORIGIN_Y), GPoint(i, GRID_ORIGIN_Y + GRID_PIXEL_HEIGHT)); 
   }
   // Draw horizontal lines
-  for (int i=GRID_ORIGIN_Y; i<(GRID_PIXEL_HEIGHT+GRID_ORIGIN_Y); i+=BLOCK_SIZE) {
+  for (int i=GRID_ORIGIN_Y; i<=(GRID_PIXEL_HEIGHT+GRID_ORIGIN_Y); i+=BLOCK_SIZE) {
     graphics_draw_line(ctx, GPoint(GRID_ORIGIN_X, i), GPoint(GRID_ORIGIN_X+GRID_PIXEL_WIDTH, i));
   }
 }
@@ -666,7 +656,7 @@ static void window_load(Window *window) {
 
   score_label_layer = text_layer_create((GRect) { 
     .origin = { 
-      GRID_ORIGIN_X+GRID_PIXEL_WIDTH, 
+      GRID_ORIGIN_X+GRID_PIXEL_WIDTH + 1,  // + 1 to avoid overlapping with grid edge
       (GRID_ORIGIN_Y + BLOCK_SIZE * PBL_IF_RECT_ELSE(6, 9)) // place layer 6 or 9 blocks from top vertical coordinate of play area
     }, 
     .size = { 
@@ -678,7 +668,7 @@ static void window_load(Window *window) {
 
   score_layer = text_layer_create((GRect) { 
     .origin = { 
-      GRID_ORIGIN_X + GRID_PIXEL_WIDTH, 
+      GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1, 
       (GRID_ORIGIN_Y + BLOCK_SIZE * PBL_IF_RECT_ELSE(7, 10) + LABEL_HEIGHT) // 7 or 10 blocks from top, below previous label
     }, 
     .size = { 
@@ -690,7 +680,7 @@ static void window_load(Window *window) {
 
   level_label_layer = text_layer_create((GRect) { 
     .origin = { 
-      PBL_IF_RECT_ELSE(GRID_ORIGIN_X + GRID_PIXEL_WIDTH, 0), // align to the left of play area on Round screen
+      PBL_IF_RECT_ELSE(GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1, 0), // align to the left of play area on Round screen
       PBL_IF_RECT_ELSE(GRID_ORIGIN_Y + BLOCK_SIZE * 8 + LABEL_HEIGHT * 2, GRID_ORIGIN_Y + BLOCK_SIZE * 7)
     }, 
     .size = { 
@@ -702,7 +692,7 @@ static void window_load(Window *window) {
   
   level_layer = text_layer_create((GRect) { 
     .origin = { 
-      PBL_IF_RECT_ELSE(GRID_ORIGIN_X + GRID_PIXEL_WIDTH, 0), 
+      PBL_IF_RECT_ELSE(GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1, 0),
       PBL_IF_RECT_ELSE(GRID_ORIGIN_Y + BLOCK_SIZE * 9 + LABEL_HEIGHT * 3, GRID_ORIGIN_Y + BLOCK_SIZE * 8 + LABEL_HEIGHT) 
     }, 
     .size = { 
