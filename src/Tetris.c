@@ -5,10 +5,6 @@
 
 #include "helpers.h"
 
-#define BLOCK_SIZE 8 
-#define GRID_BLOCK_WIDTH 10
-#define GRID_BLOCK_HEIGHT 20
-
 #if defined(PBL_PLATFORM_CHALK)
   #define SCREEN_WIDTH 180
   #define SCREEN_HEIGHT 180
@@ -108,10 +104,7 @@ static void drop_block() {
     blockType = nextBlockType;
     nextBlockType = rand() % 7;
     rotation = 0;
-    int adjust = 0;
-    if (blockType == Z || blockType == J) { adjust = -1; }
-    if (blockType == LINE) { adjust = -2; }
-    blockX = 5 + adjust;
+    blockX = 5;
     blockY = 0;
     nextBlockX = 0;
     nextBlockY = 0;
@@ -346,13 +339,20 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   }
 
   if (blockType == -1) { return; }
+
+  // Rotation Logic
   GPoint newPos[4];
-  rotate_block(newPos, block, blockType, rotation);
+  rotate_block(newPos, block, blockType, (rotation + 1) % 4);
 
   bool should_rotate = true;
   for (int i=0; i<4; i++) {
-    if (newPos[i].x < 0 || newPos[i].x > 9) { should_rotate = false; }
-    if (newPos[i].y < 0 || newPos[i].y > 19) { should_rotate = false; }
+    if (newPos[i].x < 0 || newPos[i].x >= GRID_BLOCK_WIDTH) { should_rotate = false; } 
+    if (newPos[i].y >= GRID_BLOCK_HEIGHT) { should_rotate = false; } 
+    else if (newPos[i].y < 0) { 
+      for (int i=0; i<4; i++) {
+        newPos[i].y += (blockType == LINE) ? 2 : 1; // kick down pieces too high on the grid to rotate (by 2 for the line)
+      }
+    } 
     if (grid[newPos[i].x][newPos[i].y]) { should_rotate = false; }
   }
   if (!should_rotate) { return; }
@@ -361,6 +361,7 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
     block[i] = newPos[i];
   }
   rotation = (rotation + 1) % 4;
+  
   layer_mark_dirty(s_game_pane_layer);
 }
 

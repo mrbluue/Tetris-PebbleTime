@@ -34,219 +34,100 @@ void update_num_layer (int num, char* str, TextLayer *layer) {
   text_layer_set_text(layer, str);
 }
 
+const GPoint SHAPES[7][4] = {
+  { 
+    // X  Y        * = pivot point at x = 0 & y = 0 at index [0] (part of shape that never rotates)
+    {  0, 0 },  // SQUARE
+    { -1, 0 },  // |2|3 |
+    { -1, 1 },  // |1|0*|
+    {  0, 1 }
+  },
+  { 
+    {  0, 0 },
+    { -2, 0 },  // LINE
+    { -1, 0 },  // |1|2|0*|3|
+    {  1, 0 }   
+  },
+  {
+    {  0, 0 }, // J
+    { -1, 1 }, // |1|
+    { -1, 0 }, // |2|0*|3|
+    {  1, 0 }  
+  },
+  {
+    {  0, 0 }, // L
+    { -1, 0 }, //      |3|
+    {  1, 0 }, // |1|0*|2|
+    {  1, 1 }
+  },
+  {
+    {  0, 0 }, // S
+    {  1, 1 }, //   |2 |1|
+    {  0, 1 }, // |3|0*|
+    { -1, 0 }
+  },
+  {
+    {  0, 0 }, // Z 
+    { -1, 1 }, // |1|2 |
+    {  0, 1 }, //   |0*|3|
+    {  1, 0 }
+  },
+  {
+    {  0, 0 }, // T
+    { -1, 0 }, //   |3 |   
+    {  1, 0 }, // |1|0*|2|
+    {  0, 1 }
+  }
+
+};
+
 void make_block (GPoint *create_block, int type, int bX, int bY) {
-  if (type == SQUARE) {
-    create_block[0] = GPoint(bX, bY);
-    create_block[1] = GPoint(bX+1, bY);
-    create_block[2] = GPoint(bX, bY+1);
-    create_block[3] = GPoint(bX+1, bY+1);
+  for (int i = 0; i < 4; i++) {
+    create_block[i] = GPoint(bX + SHAPES[type][i].x, bY + SHAPES[type][i].y);
   }
-  else if (type == LINE) {
-    create_block[0] = GPoint(bX, bY);
-    create_block[1] = GPoint(bX+1, bY);
-    create_block[2] = GPoint(bX+2, bY);
-    create_block[3] = GPoint(bX+3, bY);
-  }
-  else if (type == J) {
-    create_block[0] = GPoint(bX, bY);
-    create_block[1] = GPoint(bX, bY+1);
-    create_block[2] = GPoint(bX+1, bY+1);
-    create_block[3] = GPoint(bX+2, bY+1);
-  }
-  else if (type == L) {
-    create_block[0] = GPoint(bX, bY);
-    create_block[1] = GPoint(bX, bY+1);
-    create_block[2] = GPoint(bX-1, bY+1);
-    create_block[3] = GPoint(bX-2, bY+1);
-  }
-  else if (type == S) {
-    create_block[0] = GPoint(bX, bY);
-    create_block[1] = GPoint(bX-1, bY);
-    create_block[2] = GPoint(bX-1, bY+1);
-    create_block[3] = GPoint(bX-2, bY+1);
-  }
-  else if (type == Z) {
-    create_block[0] = GPoint(bX, bY);
-    create_block[1] = GPoint(bX+1, bY);
-    create_block[2] = GPoint(bX+1, bY+1);
-    create_block[3] = GPoint(bX+2, bY+1);
-  }
-  else if (type == T) {
-    create_block[0] = GPoint(bX, bY);
-    create_block[1] = GPoint(bX-1, bY+1);
-    create_block[2] = GPoint(bX, bY+1);
-    create_block[3] = GPoint(bX+1, bY+1);
-  }
+}
+
+GPoint rotate_point (int old_x, int old_y, int rotation) {
+  
+  int new_x, new_y;
+
+  switch (rotation % 4) {
+    case 0: new_x = old_x; new_y =  old_y; break; // initial state
+    case 1: new_x = -old_y; new_y = old_x; break;
+    case 2: new_x = -old_x; new_y = -old_y; break;
+    case 3: new_x = old_y; new_y =  -old_x; break;
+    default: new_x = old_x; new_y =  old_y;
+  } 
+
+  return GPoint(new_x, new_y);
+
 }
 
 // Rotate the current block.
-// Yeah, I had to map these out on paper.
+// No longer need paper.
 void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rotation) {
+
   if (block_type == SQUARE) {
-    new_block[0] = old_block[0];
-    new_block[1] = old_block[1];
-    new_block[2] = old_block[2];
-    new_block[3] = old_block[3];
+    for (int i = 0; i < 4; i++) {
+      new_block[i] = old_block[i];
+    }
+    return;
   }
-  else if (block_type == LINE) {
-    if (rotation == 0) {
-      new_block[0] = GPoint(old_block[2].x, old_block[0].y-1);
-      new_block[1] = GPoint(old_block[2].x, old_block[0].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[0].y+1);
-      new_block[3] = GPoint(old_block[2].x, old_block[0].y+2);
-    }
-    else if (rotation == 1) {
-      new_block[0] = GPoint(old_block[0].x+1, old_block[2].y);
-      new_block[1] = GPoint(old_block[0].x, old_block[2].y);
-      new_block[2] = GPoint(old_block[0].x-1, old_block[2].y);
-      new_block[3] = GPoint(old_block[0].x-2, old_block[2].y);
-    }
-    else if (rotation == 2) {
-      new_block[0] = GPoint(old_block[2].x, old_block[0].y+1);
-      new_block[1] = GPoint(old_block[2].x, old_block[0].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[0].y-1);
-      new_block[3] = GPoint(old_block[2].x, old_block[0].y-2);
-    }
-    else if (rotation == 3) {
-      new_block[0] = GPoint(old_block[0].x-1, old_block[2].y);
-      new_block[1] = GPoint(old_block[0].x, old_block[2].y);
-      new_block[2] = GPoint(old_block[0].x+1, old_block[2].y);
-      new_block[3] = GPoint(old_block[0].x+2, old_block[2].y);
-    }
+
+  if (block_type == LINE) {
+    rotation %= 2; 
   }
-  else if (block_type == J) {
-    if (rotation == 0) {
-      new_block[0] = GPoint(old_block[3].x, old_block[0].y);
-      new_block[1] = GPoint(old_block[2].x, old_block[0].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[1].y);
-      new_block[3] = GPoint(old_block[2].x, old_block[1].y+1);
-    }
-    else if (rotation == 1) {
-      new_block[0] = GPoint(old_block[0].x, old_block[3].y);
-      new_block[1] = GPoint(old_block[0].x, old_block[2].y);
-      new_block[2] = GPoint(old_block[1].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[1].x-1, old_block[2].y);
-    }
-    else if (rotation == 2) {
-      new_block[0] = GPoint(old_block[3].x, old_block[0].y);
-      new_block[1] = GPoint(old_block[2].x, old_block[0].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[1].y);
-      new_block[3] = GPoint(old_block[2].x, old_block[1].y-1);
-    }
-    else if (rotation == 3) {
-      new_block[0] = GPoint(old_block[0].x, old_block[3].y);
-      new_block[1] = GPoint(old_block[0].x, old_block[2].y);
-      new_block[2] = GPoint(old_block[1].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[1].x+1, old_block[2].y);
-    }
+
+  GPoint pivotPoint = old_block[0];
+  new_block[0] = pivotPoint;
+  for(int i=1; i<4; i++){
+    GPoint new_coord = rotate_point(SHAPES[block_type][i].x, SHAPES[block_type][i].y, rotation);
+    new_block[i] = GPoint(pivotPoint.x+new_coord.x, pivotPoint.y+new_coord.y);
   }
-  else if (block_type == L) {
-    if (rotation == 0) {
-      new_block[0] = GPoint(old_block[1].x, old_block[1].y+1);
-      new_block[1] = GPoint(old_block[2].x, old_block[1].y+1);
-      new_block[2] = GPoint(old_block[2].x, old_block[1].y);
-      new_block[3] = GPoint(old_block[2].x, old_block[1].y-1);
-    }
-    else if (rotation == 1) {
-      new_block[0] = GPoint(old_block[1].x-1, old_block[1].y);
-      new_block[1] = GPoint(old_block[1].x-1, old_block[2].y);
-      new_block[2] = GPoint(old_block[1].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[0].x, old_block[2].y);
-    }
-    else if (rotation == 2) {
-      new_block[0] = GPoint(old_block[1].x, old_block[1].y-1);
-      new_block[1] = GPoint(old_block[2].x, old_block[1].y-1);
-      new_block[2] = GPoint(old_block[2].x, old_block[1].y);
-      new_block[3] = GPoint(old_block[2].x, old_block[1].y+1);
-    }
-    else if (rotation == 3) {
-      new_block[0] = GPoint(old_block[1].x+1, old_block[1].y);
-      new_block[1] = GPoint(old_block[1].x+1, old_block[2].y);
-      new_block[2] = GPoint(old_block[1].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[0].x, old_block[2].y);
-    }
-  }
-  else if (block_type == S) {
-    if (rotation == 0) {
-      new_block[0] = GPoint(old_block[0].x, old_block[2].y+1);
-      new_block[1] = GPoint(old_block[0].x, old_block[2].y);
-      new_block[2] = GPoint(old_block[1].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[1].x, old_block[0].y);
-    }
-    else if (rotation == 1) {
-      new_block[0] = GPoint(old_block[2].x-1, old_block[0].y);
-      new_block[1] = GPoint(old_block[2].x, old_block[0].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[1].x, old_block[1].y);
-    }
-    else if (rotation == 2) {
-      new_block[0] = GPoint(old_block[0].x, old_block[2].y-1);
-      new_block[1] = GPoint(old_block[0].x, old_block[2].y);
-      new_block[2] = GPoint(old_block[1].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[1].x, old_block[0].y);
-    }
-    else if (rotation == 3) {
-      new_block[0] = GPoint(old_block[2].x+1, old_block[0].y);
-      new_block[1] = GPoint(old_block[2].x, old_block[0].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[1].x, old_block[1].y);
-    }
-  }
-  else if (block_type == Z) {
-    if (rotation == 0) {
-      new_block[0] = GPoint(old_block[3].x, old_block[0].y);
-      new_block[1] = GPoint(old_block[3].x, old_block[2].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[2].x, old_block[2].y+1);
-    }
-    else if (rotation == 1) {
-      new_block[0] = GPoint(old_block[0].x, old_block[3].y);
-      new_block[1] = GPoint(old_block[3].x, old_block[3].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[2].x-1, old_block[2].y);
-    }
-    else if (rotation == 2) {
-      new_block[0] = GPoint(old_block[3].x, old_block[0].y);
-      new_block[1] = GPoint(old_block[3].x, old_block[2].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[2].x, old_block[2].y-1);
-    }
-    else if (rotation == 3) {
-      new_block[0] = GPoint(old_block[0].x, old_block[3].y);
-      new_block[1] = GPoint(old_block[3].x, old_block[3].y);
-      new_block[2] = GPoint(old_block[2].x, old_block[2].y);
-      new_block[3] = GPoint(old_block[2].x+1, old_block[2].y);
-    }
-  }
-  else if (block_type == T) {
-    if (rotation == 0) {
-      new_block[0] = old_block[3];
-      new_block[1] = old_block[0];
-      new_block[2] = old_block[2];
-      new_block[3] = GPoint(old_block[0].x, old_block[2].y+1);
-    }
-    else if (rotation == 1) {
-      new_block[0] = old_block[3];
-      new_block[1] = old_block[0];
-      new_block[2] = old_block[2];
-      new_block[3] = GPoint(old_block[2].x-1, old_block[2].y);
-    }
-    else if (rotation == 2) {
-      new_block[0] = old_block[3];
-      new_block[1] = old_block[0];
-      new_block[2] = old_block[2];
-      new_block[3] = GPoint(old_block[0].x, old_block[2].y-1);
-    }
-    else if (rotation == 3) {
-      new_block[0] = old_block[3];
-      new_block[1] = old_block[0];
-      new_block[2] = old_block[2];
-      new_block[3] = GPoint(old_block[2].x+1, old_block[2].y);
-    }
-  }
+
 }
 
-int find_max_drop (GPoint *block, uint8_t grid[10][20]) {
+int find_max_drop (GPoint *block, uint8_t grid[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT]) {
   bool canDrop = true;
   int drop_amount = 0;
   while (canDrop) {
@@ -262,7 +143,7 @@ int find_max_drop (GPoint *block, uint8_t grid[10][20]) {
   return drop_amount;
 }
 
-int find_max_horiz_move (GPoint *block, uint8_t grid[10][20], bool direction) {
+int find_max_horiz_move (GPoint *block, uint8_t grid[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT], bool direction) {
   bool can_move = true;
   int move_amount = 0;
   int move_dir = direction ? 1 : -1;
@@ -279,11 +160,8 @@ int find_max_horiz_move (GPoint *block, uint8_t grid[10][20], bool direction) {
   return move_amount;
 }
 
-// Just to make the 'next block' display nice and centered.
+// Just to make the 'next block' display nice and centered for blocks which have even width
 int next_block_offset (int block_type) {
-  if (block_type == T) { return 0; }
-  else if (block_type == SQUARE) { return -4; }
-  else if (block_type == S || block_type == L) { return 8; }
-  else if (block_type == Z || block_type == J) { return -8; }
-  else { return -12; }
+  if (block_type == SQUARE || block_type == LINE) { return BLOCK_SIZE/2; }
+  else { return 0; }
 }
