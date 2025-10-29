@@ -92,10 +92,10 @@ GPoint rotate_point (int old_x, int old_y, int rotation) {
   int new_x, new_y;
 
   switch (rotation % 4) {
-    case 0: new_x = old_x; new_y =  old_y; break; // initial state
-    case 1: new_x = -old_y; new_y = old_x; break;
+    case 0: new_x =  old_x; new_y =  old_y; break; // initial state
+    case 1: new_x = -old_y; new_y =  old_x; break;
     case 2: new_x = -old_x; new_y = -old_y; break;
-    case 3: new_x = old_y; new_y =  -old_x; break;
+    case 3: new_x =  old_y; new_y = -old_x; break;
     default: new_x = old_x; new_y =  old_y;
   } 
 
@@ -104,7 +104,6 @@ GPoint rotate_point (int old_x, int old_y, int rotation) {
 }
 
 // Rotate the current block.
-// No longer need paper.
 void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rotation) {
 
   if (block_type == SQUARE) {
@@ -118,11 +117,11 @@ void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rot
     rotation %= 2; 
   }
 
-  GPoint pivotPoint = old_block[0];
-  new_block[0] = pivotPoint;
+  GPoint pivot_point = old_block[0];
+  new_block[0] = pivot_point;
   for(int i=1; i<4; i++){
     GPoint new_coord = rotate_point(SHAPES[block_type][i].x, SHAPES[block_type][i].y, rotation);
-    new_block[i] = GPoint(pivotPoint.x+new_coord.x, pivotPoint.y+new_coord.y);
+    new_block[i] = GPoint(pivot_point.x+new_coord.x, pivot_point.y+new_coord.y);
   }
 
 }
@@ -130,38 +129,97 @@ void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rot
 int find_max_drop (GPoint *block, uint8_t grid[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT]) {
   bool canDrop = true;
   int drop_amount = 0;
+
   while (canDrop) {
     for (int i=0; i<4; i++) {
       int benthic = block[i].y + 1 + drop_amount;
-      if (benthic > 19) { canDrop = false; }
-      if (grid[block[i].x][benthic]) { canDrop = false; }
+      if (benthic > 19 || grid[block[i].x][benthic]) { 
+        canDrop = false; 
+      }
     }
     if (canDrop) {
       drop_amount += 1;
     }
   }
-  return drop_amount;
-}
 
-int find_max_horiz_move (GPoint *block, uint8_t grid[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT], bool direction) {
-  bool can_move = true;
-  int move_amount = 0;
-  int move_dir = direction ? 1 : -1;
-  while (can_move) {
-    for (int i=0; i<4; i++) {
-      int side = block[i].x + move_dir * (1 + move_amount);
-      if (side < 0 || side > 9) { can_move = false; }
-      if (grid[side][block[i].y]) { can_move = false; }
-    }
-    if (can_move) {
-      move_amount += 1;
-    }
-  }
-  return move_amount;
+  return drop_amount;
 }
 
 // Just to make the 'next block' display nice and centered for blocks which have even width
 int next_block_offset (int block_type) {
   if (block_type == SQUARE || block_type == LINE) { return BLOCK_SIZE/2; }
   else { return 0; }
+}
+
+void set_theme(int theme_id) {
+  switch (theme_id) {
+  case 0:
+    theme.window_bg_color         = GColorFromRGB(0, 0, 96);  // BLUE
+    theme.window_header_color     = GColorWhite;
+    theme.window_label_text_color = GColorBlack;
+    theme.window_label_bg_color   = GColorWhite;
+    theme.window_label_bg_inactive_color = GColorLightGray;
+    theme.grid_bg_color           = GColorBlack;
+    theme.grid_lines_color        = GColorFromRGB(64, 0, 64);
+
+    theme.block_color[SQUARE] = GColorFromRGB(196, 0, 0);     // RED
+    theme.block_color[LINE]   = GColorFromRGB(0, 170, 0);     // GREEN
+    theme.block_color[J]      = GColorFromRGB(0, 0, 196);     // BLUE
+    theme.block_color[L]      = GColorFromRGB(255, 85, 0);    // YELLOW
+    theme.block_color[S]      = GColorFromRGB(196, 0, 196);   // PURPLE
+    theme.block_color[Z]      = GColorFromRGB(0, 196, 196);   // CYAN
+    theme.block_color[T]      = GColorFromRGB(196, 196, 196); // WHITE
+
+    theme.block_border_color  = GColorBlack;
+    theme.drop_shadow_color   = GColorFromRGB(96, 96, 96);
+    theme.select_color        = GColorBlack;
+    theme.score_accent_color  = GColorPastelYellow;
+    break;
+  case 1:
+    theme.window_bg_color         = GColorFromRGB(0, 96, 0);  // GREEN
+    theme.window_header_color     = GColorWhite;
+    theme.window_label_text_color = GColorWhite;
+    theme.window_label_bg_color   = GColorBlack;
+    theme.window_label_bg_inactive_color = GColorBlack;
+    theme.grid_bg_color           = GColorWhite;
+    theme.grid_lines_color        = GColorCeleste;
+
+    theme.block_color[SQUARE] = GColorFromRGB(196, 0, 0);     // RED
+    theme.block_color[LINE]   = GColorFromRGB(0, 170, 0);     // GREEN
+    theme.block_color[J]      = GColorFromRGB(0, 0, 196);     // BLUE
+    theme.block_color[L]      = GColorFromRGB(255, 85, 0);    // ORANGE
+    theme.block_color[S]      = GColorFromRGB(196, 0, 196);   // PURPLE
+    theme.block_color[Z]      = GColorFromRGB(0, 196, 196);   // CYAN
+    theme.block_color[T]      = GColorChromeYellow; // YELLOW
+
+    theme.block_border_color  = GColorBlack;
+    theme.drop_shadow_color   = GColorFromRGB(96, 96, 96);
+    theme.select_color        = GColorWhite;
+    theme.score_accent_color  = GColorRichBrilliantLavender;
+    break;
+  case 2:
+    theme.window_bg_color         = GColorFromRGB(96, 0, 0);  // RED
+    theme.window_header_color     = GColorWhite;
+    theme.window_label_text_color = GColorWhite;
+    theme.window_label_bg_color   = GColorBlack;
+    theme.window_label_bg_inactive_color = GColorBlack;
+    theme.grid_bg_color           = GColorWhite;
+    theme.grid_lines_color        = GColorCeleste;
+
+    theme.block_color[SQUARE] = GColorFromRGB(196, 0, 0);     // RED
+    theme.block_color[LINE]   = GColorFromRGB(0, 170, 0);     // GREEN
+    theme.block_color[J]      = GColorFromRGB(0, 0, 196);     // BLUE
+    theme.block_color[L]      = GColorFromRGB(255, 85, 0);    // ORANGE
+    theme.block_color[S]      = GColorFromRGB(196, 0, 196);   // PURPLE
+    theme.block_color[Z]      = GColorFromRGB(0, 196, 196);   // CYAN
+    theme.block_color[T]      = GColorChromeYellow; // YELLOW
+
+    theme.block_border_color  = GColorBlack;
+    theme.drop_shadow_color   = GColorFromRGB(96, 96, 96);
+    theme.select_color        = GColorWhite;
+    theme.score_accent_color  = GColorCeleste;
+    break;
+  default:
+    break;
+  }
 }

@@ -1,0 +1,62 @@
+{
+  "name": "pebble-tetris",
+  "author": "ValentJn",
+  "version": "2.0.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "pebble": {
+    "displayName": "Pebble Tetris",
+    "uuid": "18ddd9fd-a6b0-4a92-820a-3287d92eb615",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "basalt",
+      "chalk"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "dummy"
+    ],
+    "resources": {
+      "media": [
+        {
+          "file": "images/Logo_25.png",
+          "menuIcon": true,
+          "name": "LOGO",
+          "type": "png"
+        },
+        {
+          "file": "data/LICENSE",
+          "name": "LICENSE",
+          "type": "raw"
+        },
+        {
+          "file": "fonts/aquarius.bold.ttf",
+          "name": "AQUARIUS_BOLD_20",
+          "type": "font",
+          "characterRegex": "[A-Z ]"
+        },
+        {
+          "file": "fonts/aquarius.regular-mono.mod3.square.center.ttf",
+          "name": "AQUARIUS_MONO_13",
+          "type": "font",
+          "characterRegex": "[A-Z ]"
+        },
+        {
+          "file": "fonts/publicpixel.ttf",
+          "name": "PUBLICPIXEL_8",
+          "type": "font"
+        },
+        {
+          "file": "fonts/publicpixel.ttf",
+          "name": "PUBLICPIXEL_16",
+          "type": "font"
+        }
+      ]
+    }
+  }
+}
