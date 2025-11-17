@@ -38,23 +38,25 @@
           "file": "fonts/aquarius.bold.ttf",
           "name": "AQUARIUS_BOLD_20",
           "type": "font",
-          "characterRegex": "[A-Z ]"
+          "characterRegex": "[a-zA-Z]"
         },
         {
           "file": "fonts/aquarius.regular-mono.mod3.square.center.ttf",
           "name": "AQUARIUS_MONO_13",
           "type": "font",
-          "characterRegex": "[A-Z ]"
+          "characterRegex": "[A-Z]"
         },
         {
           "file": "fonts/publicpixel.ttf",
           "name": "PUBLICPIXEL_8",
-          "type": "font"
+          "type": "font",
+          "characterRegex": "[ -~]"
         },
         {
           "file": "fonts/publicpixel.ttf",
           "name": "PUBLICPIXEL_16",
-          "type": "font"
+          "type": "font",
+          "characterRegex": "[A-Z]"
         }
       ]
     }

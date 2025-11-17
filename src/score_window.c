@@ -9,12 +9,13 @@ static Window *s_window;
 static Layer     *s_name_picker_layer;
 static TextLayer *s_header_layer;
 static TextLayer *s_score_text_layer[MAX_SCORES_SHOWN];
-// static TextLayer *s_placeholder;
+static TextLayer *s_bad_score_text_layer;
 
 static GPath     *s_selector_path;
 
 static GameScore s_game_scores[MAX_SCORES_SHOWN];
 static char s_game_score_strings[MAX_SCORES_SHOWN][17];
+static char s_bad_score_string[17];
 static int  s_scores_exist_bool = false;
 
 static uint32_t s_new_score;
@@ -27,28 +28,29 @@ static void prv_window_load(Window *window);
 static void prv_window_unload(Window *window);
 static void prv_draw_name_select(Layer *layer, GContext *ctx);
 
-static void prv_up_click_handler(ClickRecognizerRef recognizer, void *context);
-static void prv_down_click_handler(ClickRecognizerRef recognizer, void *context);
-static void prv_select_click_handler(ClickRecognizerRef recognizer, void *context);
 static void prv_click_config_provider(void *context);
 
-static void prv_test_scores();
 static void prv_load_scores();
+// static void prv_test_scores();
 static void prv_add_new_score();
-// static void prv_add_new_score(uint32_t new_score);
 static char * prv_get_score_string(int i);
 
+// -------------------------- //
+// **** WINDOW FUNCTIONS **** //
+// -------------------------- //
 
 void new_score_window_push(uint32_t new_score) {
   prv_load_scores();
+  // prv_test_scores();
   prv_score_window_push();
   s_new_score = new_score;
   s_current_char = 0;
   s_new_score_pos = MAX_SCORES_SHOWN;
   if(s_new_score == 0){
-    persist_read_string(GAME_NAME_KEY, s_new_score_name, 4);
-    layer_set_hidden(s_name_picker_layer, false);
+    layer_set_hidden(s_name_picker_layer, true);
+    return;
   }
+  persist_read_string(GAME_NAME_KEY, s_new_score_name, 4);
 }
 
 void all_scores_window_push() {
@@ -78,7 +80,7 @@ static void prv_window_load(Window *window){
   int16_t bounds_width = bounds.size.w;
   int16_t bounds_height = bounds.size.h;
 
-  s_header_layer = text_layer_create((GRect) { .origin = { 0, 20 }, .size = { bounds_width, 20 } });
+  s_header_layer = text_layer_create((GRect) { .origin = { 0, 16 }, .size = { bounds_width, 20 } });
   text_layer_set_text(s_header_layer, "High Scores");
   text_layer_set_text_alignment(s_header_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_header_layer, GColorClear);
@@ -86,7 +88,7 @@ static void prv_window_load(Window *window){
   layer_add_child(window_layer, text_layer_get_layer(s_header_layer));
   
   for (int i=0; i<MAX_SCORES_SHOWN; i++){
-    s_score_text_layer[i] = text_layer_create((GRect) { .origin = { 0, 50 + i * SCORE_LABEL_HEIGHT }, .size = { bounds_width, SCORE_LABEL_HEIGHT } });
+    s_score_text_layer[i] = text_layer_create((GRect) { .origin = { 0, 42 + i * SCORE_LABEL_HEIGHT }, .size = { bounds_width, SCORE_LABEL_HEIGHT } });
     text_layer_set_font(s_score_text_layer[i], s_font_mono_small);
     text_layer_set_text_alignment(s_score_text_layer[i], GTextAlignmentCenter);
     text_layer_set_background_color(s_score_text_layer[i], GColorClear);
@@ -100,15 +102,12 @@ static void prv_window_load(Window *window){
 
     layer_add_child(window_layer, text_layer_get_layer(s_score_text_layer[i]));
   }
-  // if(!s_scores_exist_bool){
-  //   s_placeholder = text_layer_create((GRect) { .origin = { 0, 50 + 3 * SCORE_LABEL_HEIGHT }, .size = { bounds_width, SCORE_LABEL_HEIGHT } });
-  //   text_layer_set_font(s_placeholder, s_font_mono_small);
-  //   text_layer_set_text_alignment(s_placeholder, GTextAlignmentCenter);
-  //   text_layer_set_background_color(s_placeholder, GColorClear);
-  //   text_layer_set_text_color(s_placeholder, theme.window_header_color);
-  //   text_layer_set_text(s_placeholder, "No scores yet");
-  //   layer_add_child(window_layer, text_layer_get_layer(s_placeholder));
-  // }
+
+  s_bad_score_text_layer = text_layer_create((GRect) { .origin = { 0, 42 + MAX_SCORES_SHOWN * SCORE_LABEL_HEIGHT + 4 }, .size = { bounds_width, SCORE_LABEL_HEIGHT } });
+  text_layer_set_font(s_bad_score_text_layer, s_font_mono_small);
+  text_layer_set_text_alignment(s_bad_score_text_layer, GTextAlignmentCenter);
+  text_layer_set_background_color(s_bad_score_text_layer, GColorClear);
+  text_layer_set_text_color(s_bad_score_text_layer, theme.score_accent_color);
 
   s_name_picker_layer = layer_create(GRect(0, 0, bounds_width, bounds_height));
   layer_set_update_proc(s_name_picker_layer, prv_draw_name_select);
@@ -116,13 +115,19 @@ static void prv_window_load(Window *window){
 }
 
 static void prv_window_unload(Window *window){
+  layer_destroy(s_name_picker_layer);
   text_layer_destroy(s_header_layer);
   if(s_scores_exist_bool){
     for (int i=0; i<MAX_SCORES_SHOWN; i++){
       text_layer_destroy(s_score_text_layer[i]);
     }
   }
+  text_layer_destroy(s_bad_score_text_layer);
 }
+
+// ------------------------ //
+// **** DRAW FUNCTIONS **** //
+// ------------------------ //
 
 static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   // BACKGROUND
@@ -132,7 +137,6 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   GRect dialog_box = GRect(PBL_IF_ROUND_ELSE(24, 8), 45, SCREEN_WIDTH - PBL_IF_ROUND_ELSE(48, 16), SCREEN_HEIGHT - 90);
   
   graphics_context_set_stroke_color(ctx, GColorWhite);
-  // graphics_context_set_fill_color(ctx, theme.grid_bg_color);
   graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, dialog_box, 0, GCornerNone);
   graphics_draw_rect(ctx, dialog_box);
@@ -151,7 +155,6 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   graphics_draw_text(ctx, let3, s_font_mono_big, let3_box, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
   
   // ARROWS
-
   graphics_context_set_fill_color(ctx, GColorWhite);
   
   // ^ UP arrow
@@ -179,6 +182,9 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   graphics_draw_text(ctx, "ENTER YOUR NAME", s_font_mono_small, header, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
 }
 
+// -------------------------- //
+// ***** CLICK HANDLERS ***** //
+// -------------------------- //
 
 static void prv_back_click_handler(ClickRecognizerRef recognizer, void *context) {
   if(!layer_get_hidden(s_name_picker_layer)){
@@ -186,8 +192,6 @@ static void prv_back_click_handler(ClickRecognizerRef recognizer, void *context)
       s_current_char--;
     else
       return;
-      // window_stack_pop(true);
-
     layer_mark_dirty(s_name_picker_layer);
   } else {
     window_stack_pop(true);
@@ -206,27 +210,29 @@ static void prv_select_click_handler(ClickRecognizerRef recognizer, void *contex
       s_current_char = 0;
 
     layer_mark_dirty(s_name_picker_layer);
+  } else {
+    // TODO: toggle show date and level for scores?
   }
 }
 
 static void prv_up_click_handler(ClickRecognizerRef recognizer, void *context) {
-  if(!layer_get_hidden(s_name_picker_layer)){
-    char *c = &s_new_score_name[s_current_char];
-    (*c) -= 1;
-    if(*c > 'Z') *c = 'A';
-    else if (*c < 'A') *c = 'Z';
-    layer_mark_dirty(s_name_picker_layer);
-  }
+  if(layer_get_hidden(s_name_picker_layer)) return;
+
+  char *c = &s_new_score_name[s_current_char];
+  (*c) -= 1;
+  if(*c > 'Z') *c = 'A';
+  else if (*c < 'A') *c = 'Z';
+  layer_mark_dirty(s_name_picker_layer);
 }
 
 static void prv_down_click_handler(ClickRecognizerRef recognizer, void *context) {
-  if(!layer_get_hidden(s_name_picker_layer)){
-    char *c = &s_new_score_name[s_current_char];
-    (*c) += 1;
-    if(*c > 'Z') *c = 'A';
-    else if (*c < 'A') *c = 'Z';
-    layer_mark_dirty(s_name_picker_layer);
-  }
+  if(layer_get_hidden(s_name_picker_layer)) return;
+
+  char *c = &s_new_score_name[s_current_char];
+  (*c) += 1;
+  if(*c > 'Z') *c = 'A';
+  else if (*c < 'A') *c = 'Z';
+  layer_mark_dirty(s_name_picker_layer);
 }
 
 static void prv_click_config_provider(void *context) {
@@ -236,6 +242,9 @@ static void prv_click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_BACK, prv_back_click_handler);
 }
 
+// ------------------------ //
+// **** DATA FUNCTIONS **** //
+// ------------------------ //
 
 // static void prv_test_scores(){
 //   uint16_t random = (rand() % 100);
@@ -272,13 +281,9 @@ static void prv_show_scores(){
 }
 
 static void prv_add_new_score(){
-// static void prv_add_new_score(uint32_t new_score){
-
   if(!s_new_score) { return; }
 
   s_scores_exist_bool = true;
-
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "ranking %"PRIu32"", s_new_score);
 
   int pos = MAX_SCORES_SHOWN; 
   for(int i=0; i<MAX_SCORES_SHOWN; i++){
@@ -287,11 +292,14 @@ static void prv_add_new_score(){
       break;
     }
   }
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "pos %d", pos);
 
-  // If it’s lower than all existing scores, and we’re already full, ignore it
-  if (pos == MAX_SCORES_SHOWN)
+  // If it’s lower than all existing scores, show it at the bottom and stop there
+  if (pos == MAX_SCORES_SHOWN) {
+    snprintf(s_bad_score_string, sizeof(s_bad_score_string), "X.%s-%06"PRIu32"", s_new_score_name, s_new_score);
+    text_layer_set_text(s_bad_score_text_layer, s_bad_score_string);
+    layer_add_child(window_get_root_layer(s_window), text_layer_get_layer(s_bad_score_text_layer));
     return;
+  }
 
   // Shift lower scores down to make space (dropping the last one)
   for (int i = MAX_SCORES_SHOWN - 1; i > pos; i--) {

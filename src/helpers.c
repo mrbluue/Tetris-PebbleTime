@@ -117,7 +117,7 @@ void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rot
     rotation %= 2; 
   }
 
-  GPoint pivot_point = old_block[0];
+  GPoint pivot_point = old_block[0]; // the 1 block out of 4 that never rotates
   new_block[0] = pivot_point;
   for(int i=1; i<4; i++){
     GPoint new_coord = rotate_point(SHAPES[block_type][i].x, SHAPES[block_type][i].y, rotation);
@@ -175,7 +175,7 @@ void set_theme(int theme_id) {
     theme.select_color        = GColorBlack;
     theme.score_accent_color  = GColorPastelYellow;
     break;
-  case 1:
+  case 1: // TODO: make an actual interesting comprehensive theme
     theme.window_bg_color         = GColorFromRGB(0, 96, 0);  // GREEN
     theme.window_header_color     = GColorWhite;
     theme.window_label_text_color = GColorWhite;
@@ -190,14 +190,14 @@ void set_theme(int theme_id) {
     theme.block_color[L]      = GColorFromRGB(255, 85, 0);    // ORANGE
     theme.block_color[S]      = GColorFromRGB(196, 0, 196);   // PURPLE
     theme.block_color[Z]      = GColorFromRGB(0, 196, 196);   // CYAN
-    theme.block_color[T]      = GColorChromeYellow; // YELLOW
+    theme.block_color[T]      = GColorChromeYellow;           // YELLOW
 
     theme.block_border_color  = GColorBlack;
     theme.drop_shadow_color   = GColorFromRGB(96, 96, 96);
     theme.select_color        = GColorWhite;
     theme.score_accent_color  = GColorRichBrilliantLavender;
     break;
-  case 2:
+  case 2: // TODO: make an actual interesting comprehensive theme (esp. for blocks)
     theme.window_bg_color         = GColorFromRGB(96, 0, 0);  // RED
     theme.window_header_color     = GColorWhite;
     theme.window_label_text_color = GColorWhite;
@@ -212,7 +212,7 @@ void set_theme(int theme_id) {
     theme.block_color[L]      = GColorFromRGB(255, 85, 0);    // ORANGE
     theme.block_color[S]      = GColorFromRGB(196, 0, 196);   // PURPLE
     theme.block_color[Z]      = GColorFromRGB(0, 196, 196);   // CYAN
-    theme.block_color[T]      = GColorChromeYellow; // YELLOW
+    theme.block_color[T]      = GColorChromeYellow;           // YELLOW
 
     theme.block_border_color  = GColorBlack;
     theme.drop_shadow_color   = GColorFromRGB(96, 96, 96);

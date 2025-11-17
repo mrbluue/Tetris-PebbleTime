@@ -18,15 +18,14 @@ static GPath     *s_selector_path; // arrow for menu select
 
 static char *MENU_OPTION_LABELS[SETTINGS_COUNT] = {"Drop Shadows", "Rotation", "Backlight", "Theme"};
 static char *MENU_INPUT_LABELS[SETTINGS_COUNT][3] = {{"OFF", "ON"}, {"Clockwise", "Cnt. Clock."}, {"Default", "Alw. ON"}, {"< 1 >", "< 2 >", "< 3 >"}};
+#ifdef PBL_PLATFORM_CHALK
 static int   MENU_OPTION_ROUND_OFFSET[SETTINGS_COUNT] = {8, 4, 16, 38};
-
+#endif
 static int current_setting = 0;
 
 static AppTimer *s_timer = NULL;
 
 static int MENU_INPUT_VALUES[SETTINGS_COUNT];
-
-// static GColor block_color[7];
 
 static void prv_window_load(Window *window);
 static void prv_window_unload(Window *window);
@@ -34,22 +33,24 @@ static void prv_window_unload(Window *window);
 static void prv_draw_select(Layer *layer, GContext *ctx);
 static void prv_draw_theme_preview(Layer *layer, GContext *ctx);
 
-// static void prv_select_click_handler(ClickRecognizerRef recognizer, void *context);
-// static void prv_up_click_handler(ClickRecognizerRef recognizer, void *context);
-// static void prv_down_click_handler(ClickRecognizerRef recognizer, void *context);
 static void prv_click_config_provider(void *context);
+
 static void prv_preview_hide_tick(void *data);
 
 static void prv_load_settings();
 static void prv_save_settings();
 
+// -------------------------- //
+// **** WINDOW FUNCTIONS **** //
+// -------------------------- //
+
 void settings_window_push() {
   s_window = window_create();
+  window_set_click_config_provider(s_window, prv_click_config_provider);
 	window_set_window_handlers(s_window, (WindowHandlers) {
 		.load = prv_window_load,
 		.unload = prv_window_unload,
 	});
-  // window_set_click_config_provider(s_window, prv_click_config_provider);
   const bool animated = true;
 	window_stack_push(s_window, animated);
   prv_load_settings();
@@ -57,8 +58,6 @@ void settings_window_push() {
 
 static void prv_window_load(Window *window){
   Layer *window_layer = window_get_root_layer(window);
-
-  // window_set_background_color(window, theme.window_bg_color);
 
   GRect bounds = layer_get_bounds(window_layer);
   int16_t bounds_width = bounds.size.w;
@@ -96,8 +95,6 @@ static void prv_window_load(Window *window){
   layer_set_update_proc(s_theme_preview_layer, prv_draw_theme_preview);
   layer_add_child(window_layer, s_theme_preview_layer);
   layer_set_hidden(s_theme_preview_layer, true);
-
-  window_set_click_config_provider(s_window, prv_click_config_provider);
 }
 
 static void prv_window_unload(Window *window){
@@ -108,7 +105,12 @@ static void prv_window_unload(Window *window){
     text_layer_destroy(s_settings_label_layer[i]);
     text_layer_destroy(s_settings_input_layer[i]);
   }
+  gpath_destroy(s_selector_path);
 }
+
+// ------------------------ //
+// **** DRAW FUNCTIONS **** //
+// ------------------------ //
 
 static void prv_draw_select(Layer *layer, GContext *ctx){
   graphics_context_set_fill_color(ctx, theme.window_bg_color); // this instead of window_set_background_color so that it refreshes when changing theme
@@ -120,28 +122,23 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
   }
   for (int i=0; i<SETTINGS_COUNT; i++){
     graphics_fill_rect(ctx, GRect(0, 50 + i * SETTINGS_LABEL_HEIGHT, SCREEN_WIDTH, 22), 0, GCornerNone);
-    // if(i==current_setting) { continue; }
-    // text_layer_set_font(s_settings_label_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_18));
   }
-  
-  // text_layer_set_font(s_settings_label_layer[current_setting], fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-
-  // graphics_context_set_stroke_color(ctx, GColorBlack);
-  // graphics_context_set_stroke_width(ctx, 2);
-
-  // graphics_draw_line(ctx, GPoint(10 + PBL_IF_ROUND_ELSE(MENU_OPTION_ROUND_OFFSET[current_setting], 0), (50 + 18 + 2) + current_setting * SETTINGS_LABEL_HEIGHT), GPoint(SCREEN_WIDTH - (10 + PBL_IF_ROUND_ELSE(MENU_OPTION_ROUND_OFFSET[current_setting], 0)), (50 + 18 + 2) + current_setting * SETTINGS_LABEL_HEIGHT)); 
 
   graphics_context_set_fill_color(ctx, theme.select_color);
   GPoint selector[3];
   int x_off = -6;
   int y_off = current_setting * SETTINGS_LABEL_HEIGHT;
+
+  #ifdef PBL_PLATFORM_CHALK
+  x_off += MENU_OPTION_ROUND_OFFSET[current_setting];
+  #endif
+
   selector[0] = GPoint(x_off + 10, 57 + y_off);
   selector[1] = GPoint(x_off + 10, 65 + y_off);
   selector[2] = GPoint(x_off + 18, 61 + y_off);
   GPathInfo selector_path_info = { 3, selector };
   s_selector_path = gpath_create(&selector_path_info);
   gpath_draw_filled(ctx, s_selector_path);
-  
 }
 
 static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
@@ -175,6 +172,10 @@ static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
 
 }
 
+// -------------------------- //
+// ***** CLICK HANDLERS ***** //
+// -------------------------- //
+
 static void prv_up_click_handler(ClickRecognizerRef recognizer, void *context) {
   if(current_setting > 0) 
     current_setting -= 1;
@@ -202,10 +203,7 @@ static void prv_select_click_handler(ClickRecognizerRef recognizer, void *contex
     } else {
       app_timer_reschedule(s_timer, 1500);
     }
-    set_theme(*value_to_change);
-    // layer_mark_dirty(s_select_layer);
-    // layer_mark_dirty(s_theme_preview_layer);
-    // layer_mark_dirty(text_layer_get_layer(s_header_layer));
+    set_theme(*value_to_change); 
     for (int i=0; i<SETTINGS_COUNT; i++){
       text_layer_set_text_color(s_settings_label_layer[i], theme.window_label_text_color);
       text_layer_set_text_color(s_settings_input_layer[i], theme.window_label_text_color);
@@ -235,10 +233,18 @@ static void prv_click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_BACK, prv_back_click_handler);
 }
 
+// -------------------------- //
+// ***** TICK FUNCTIONS ***** //
+// -------------------------- //
+
 static void prv_preview_hide_tick(void *data){
   layer_set_hidden(s_theme_preview_layer, true);
   s_timer = NULL;
 }
+
+// -------------------------- //
+// ***** DATA FUNCTIONS ***** //
+// -------------------------- //
 
 static void prv_load_settings() {
   for(int i=0; i<SETTINGS_COUNT; i++){

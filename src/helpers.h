@@ -56,7 +56,8 @@ typedef struct {
 typedef struct {
   char name[4];
   uint32_t score;
-  char date[8];
+  uint8_t level; // TODO
+  char date[8];  // TODO
 } GameScore;
 
 typedef struct {
@@ -83,11 +84,10 @@ typedef struct {
 
 extern GameSettings game_settings;
 extern Theme theme;
-extern GFont s_font_mono;
+extern GFont s_font_title;
+extern GFont s_font_menu;
 extern GFont s_font_mono_small;
 extern GFont s_font_mono_big;
-extern GFont s_font_bold;
-extern GFont s_font_reg;
 
 char *itoa10 (int value, char *result);
 

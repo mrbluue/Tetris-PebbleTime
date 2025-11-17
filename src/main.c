@@ -36,31 +36,22 @@
 GameSettings game_settings;
 Theme theme;
 
-GFont s_font_mono;
+GFont s_font_title;
+GFont s_font_menu;
 GFont s_font_mono_small;
 GFont s_font_mono_big;
-GFont s_font_bold;
-GFont s_font_reg;
-
-// static GColor block_color[7];
 
 char *MENU_OPTION_LABELS[4] = {"CONTINUE", "NEW GAME", "HIGH SCORE", "SETTINGS"};
 
 static Window    *s_window;
 static TextLayer *s_title_layer;
 static TextLayer *s_menu_option_text_layer[4];
-static GPath     *s_selector_path; // arrow for menu select
-
 
 static Layer *s_title_pane_layer = NULL;
 
 static bool can_load = false; // is there a game to continue
 static bool continue_label_showing = false; 
 static int menu_option = -1;
-
-// ------------------------- //
-// **** BUTTON HANDLERS **** //
-// ------------------------- //
 
 static void find_save(){
   if (persist_exists(GAME_STATE_KEY) && persist_exists(GAME_CONTINUE_KEY)) {
@@ -69,9 +60,13 @@ static void find_save(){
       return;
     }
   }
-  if(menu_option == 0) { menu_option = -1;}
+  if(menu_option == 0) { menu_option = 1;}
   can_load = false;
 }
+
+// ------------------------- //
+// ***** CLICK HANDLERS **** //
+// ------------------------- //
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   switch(menu_option){
@@ -85,7 +80,7 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
       break;
     case 2:
       all_scores_window_push();
-      // new_score_window_push(rand() % 1000);
+      // new_score_window_push(1000); // for testing
       break;
     case 3:
       settings_window_push();
@@ -150,46 +145,6 @@ static void draw_title_pane(Layer *layer, GContext *ctx) {
     graphics_draw_line(ctx, GPoint(0, i), GPoint(SCREEN_WIDTH, i)); 
   }
 
-  // EXPERIMENT 1: fill background of current option with random colored blocks
-  //  if(menu_option != -1) {
-  //   for (int i=0; i<(SCREEN_WIDTH/MENU_GRID_BLOCK_SIZE); i++) {
-  //     for (int j=menu_option*2; j<(menu_option*2)+3; j++) {
-  //       int color = rand() % 8;
-  //       if(color >= 6) { continue; }
-  //       graphics_context_set_fill_color(ctx, block_color[color]);
-  //       GRect brick = GRect((i*13) + MENU_GRID_X_OFFSET, (j*13) + MENU_GRID_Y, 13, 13);
-  //       graphics_fill_rect(ctx, brick, 0, GCornerNone);
-  //     }
-  //   }
-  // }
-
-  // EXPERIMENT 2: fill background of current option with whole random colored pieces
-  // if(menu_option != -1) {
-  //     int k = menu_option*2 + 1;
-
-  //     for (int l=1; l<=MENU_GRID_COLS; l+=2){
-  //       GPoint block[4];
-  //       int block_type = rand() % 7;
-  //       if(block_type == 1) {block_type += 1;}
-  //       int block_x = l; // 
-  //       int block_y = k; // always picks the line from the grid with the correpsonding text
-  //       make_block(block, block_type, block_x, block_y);
-  //       int rotation = rand() % 3;
-  //       GPoint rotated_block[4];
-  //       if(rotation != 0){
-  //         rotate_block(rotated_block, block, block_type, rotation);
-  //         // block = *rotated_block;
-  //       }
-  //       graphics_context_set_fill_color(ctx, block_color[block_type]);
-  //       for(int i=0; i<4; i++){
-  //         if(rotation != 0){
-  //           block[i] = rotated_block[i];
-  //         }
-  //         graphics_fill_rect(ctx, GRect(MENU_GRID_X_OFFSET + block[i].x * MENU_GRID_BLOCK_SIZE, MENU_GRID_Y + block[i].y * MENU_GRID_BLOCK_SIZE, MENU_GRID_BLOCK_SIZE, MENU_GRID_BLOCK_SIZE), 0, GCornerNone);
-  //       } 
-  //     }
-  // }
-
 }
 
 // -------------------------- //
@@ -197,9 +152,6 @@ static void draw_title_pane(Layer *layer, GContext *ctx) {
 // -------------------------- //
 
 static void window_load(Window *window) {
-
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "size of one score: %zu", sizeof(GameScore));
-
   Layer *window_layer = window_get_root_layer(window);
 
   window_set_background_color(window, GColorFromRGB(0, 0, 0));
@@ -213,8 +165,8 @@ static void window_load(Window *window) {
   layer_add_child(window_layer, s_title_pane_layer);
   
   s_title_layer = text_layer_create((GRect) { .origin = { 0, 20 }, .size = { bounds_width, 20 } });
-  text_layer_set_text(s_title_layer, "Tetris");
-  text_layer_set_font(s_title_layer, s_font_bold);
+  text_layer_set_text(s_title_layer, "Pebtris"); 
+  text_layer_set_font(s_title_layer, s_font_title);
   text_layer_set_text_alignment(s_title_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_title_layer, GColorClear);
   text_layer_set_text_color(s_title_layer, GColorWhite);
@@ -223,7 +175,7 @@ static void window_load(Window *window) {
   for (int i=0; i<MENU_OPTIONS; i++){
     s_menu_option_text_layer[i] = text_layer_create((GRect) { .origin = { 0, 60 + i * MENU_OPTION_HEIGHT }, .size = { bounds_width, MENU_OPTION_HEIGHT } });
     text_layer_set_text(s_menu_option_text_layer[i], MENU_OPTION_LABELS[i]);
-    text_layer_set_font(s_menu_option_text_layer[i], s_font_mono);
+    text_layer_set_font(s_menu_option_text_layer[i], s_font_menu);
     text_layer_set_text_alignment(s_menu_option_text_layer[i], GTextAlignmentCenter);
     text_layer_set_background_color(s_menu_option_text_layer[i], GColorClear);
     text_layer_set_text_color(s_menu_option_text_layer[i], GColorWhite);
@@ -255,14 +207,13 @@ static void window_unload(Window *window) {
     text_layer_destroy(s_menu_option_text_layer[i]);
   }
   layer_destroy(s_title_pane_layer);
-  gpath_destroy(s_selector_path);
 }
 
 static void init(void) {
-  s_font_bold = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_AQUARIUS_BOLD_20));
-  s_font_mono = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_AQUARIUS_MONO_13));
-  s_font_mono_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_8));
-  s_font_mono_big = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_16));
+  s_font_title = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_AQUARIUS_BOLD_20));   // keeping the title as a font until I figure out for good what this thing should be named
+  s_font_menu = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_AQUARIUS_MONO_13));    
+  s_font_mono_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_8)); // font for high score page
+  s_font_mono_big = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_16));  // font for high score name input
 
   if(!persist_exists(GAME_SETTINGS_KEY)){
     game_settings.set_drop_shadow = true;
@@ -292,6 +243,10 @@ static void init(void) {
 static void deinit(void) {
   window_destroy(s_window);
 }
+
+// --------------------------- //
+// ****** BASE APP LOOP ****** //
+// --------------------------- //
 
 int main(void) {
   init();
