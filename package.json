@@ -24,7 +24,7 @@
     "resources": {
       "media": [
         {
-          "file": "images/Logo_25.png",
+          "file": "images/Logo.png",
           "menuIcon": true,
           "name": "LOGO",
           "type": "png"
