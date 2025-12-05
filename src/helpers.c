@@ -36,11 +36,12 @@ void update_num_layer (int num, char* str, TextLayer *layer) {
 
 const GPoint SHAPES[7][4] = {
   { 
+    // Origin of the grid is in the top left
     // X  Y        * = pivot point at x = 0 & y = 0 at index [0] (part of shape that never rotates)
-    {  0, 0 },  // SQUARE
-    { -1, 0 },  // |2|3 |
-    { -1, 1 },  // |1|0*|
-    {  0, 1 }
+    {  0,  0 },  // SQUARE
+    { -1,  0 },  // |2|3 |
+    { -1, -1 },  // |1|0*|
+    {  0, -1 }
   },
   { 
     {  0, 0 },
@@ -49,34 +50,34 @@ const GPoint SHAPES[7][4] = {
     {  1, 0 }   
   },
   {
-    {  0, 0 }, // J
-    { -1, 1 }, // |1|
-    { -1, 0 }, // |2|0*|3|
-    {  1, 0 }  
+    {  0,  0 }, // J
+    { -1, -1 }, // |1|
+    { -1,  0 }, // |2|0*|3|
+    {  1,  0 }  
   },
   {
-    {  0, 0 }, // L
-    { -1, 0 }, //      |3|
-    {  1, 0 }, // |1|0*|2|
-    {  1, 1 }
+    {  0,  0 }, // L
+    { -1,  0 }, //      |3|
+    {  1,  0 }, // |1|0*|2|
+    {  1, -1 }
   },
   {
-    {  0, 0 }, // S
-    {  1, 1 }, //   |2 |1|
-    {  0, 1 }, // |3|0*|
-    { -1, 0 }
+    {  0,  0 }, // S
+    {  1, -1 }, //   |2 |1|
+    {  0, -1 }, // |3|0*|
+    { -1,  0 }
   },
   {
-    {  0, 0 }, // Z 
-    { -1, 1 }, // |1|2 |
-    {  0, 1 }, //   |0*|3|
-    {  1, 0 }
+    {  0,  0 }, // Z 
+    { -1, -1 }, // |1|2 |
+    {  0, -1 }, //   |0*|3|
+    {  1,  0 }
   },
   {
-    {  0, 0 }, // T
-    { -1, 0 }, //   |3 |   
-    {  1, 0 }, // |1|0*|2|
-    {  0, 1 }
+    {  0,  0 }, // T
+    { -1,  0 }, //   |3 |   
+    {  1,  0 }, // |1|0*|2|
+    {  0, -1 }
   }
 
 };
@@ -152,74 +153,6 @@ int next_block_offset (int block_type) {
 }
 
 void set_theme(int theme_id) {
-  switch (theme_id) {
-  case 0:
-    theme.window_bg_color         = GColorFromRGB(0, 0, 96);  // BLUE
-    theme.window_header_color     = GColorWhite;
-    theme.window_label_text_color = GColorBlack;
-    theme.window_label_bg_color   = GColorWhite;
-    theme.window_label_bg_inactive_color = GColorLightGray;
-    theme.grid_bg_color           = GColorBlack;
-    theme.grid_lines_color        = GColorFromRGB(64, 0, 64);
-
-    theme.block_color[SQUARE] = GColorFromRGB(196, 0, 0);     // RED
-    theme.block_color[LINE]   = GColorFromRGB(0, 170, 0);     // GREEN
-    theme.block_color[J]      = GColorFromRGB(0, 0, 196);     // BLUE
-    theme.block_color[L]      = GColorFromRGB(255, 85, 0);    // YELLOW
-    theme.block_color[S]      = GColorFromRGB(196, 0, 196);   // PURPLE
-    theme.block_color[Z]      = GColorFromRGB(0, 196, 196);   // CYAN
-    theme.block_color[T]      = GColorFromRGB(196, 196, 196); // WHITE
-
-    theme.block_border_color  = GColorBlack;
-    theme.drop_shadow_color   = GColorFromRGB(96, 96, 96);
-    theme.select_color        = GColorBlack;
-    theme.score_accent_color  = GColorPastelYellow;
-    break;
-  case 1: // TODO: make an actual interesting comprehensive theme
-    theme.window_bg_color         = GColorFromRGB(0, 96, 0);  // GREEN
-    theme.window_header_color     = GColorWhite;
-    theme.window_label_text_color = GColorWhite;
-    theme.window_label_bg_color   = GColorBlack;
-    theme.window_label_bg_inactive_color = GColorBlack;
-    theme.grid_bg_color           = GColorWhite;
-    theme.grid_lines_color        = GColorCeleste;
-
-    theme.block_color[SQUARE] = GColorFromRGB(196, 0, 0);     // RED
-    theme.block_color[LINE]   = GColorFromRGB(0, 170, 0);     // GREEN
-    theme.block_color[J]      = GColorFromRGB(0, 0, 196);     // BLUE
-    theme.block_color[L]      = GColorFromRGB(255, 85, 0);    // ORANGE
-    theme.block_color[S]      = GColorFromRGB(196, 0, 196);   // PURPLE
-    theme.block_color[Z]      = GColorFromRGB(0, 196, 196);   // CYAN
-    theme.block_color[T]      = GColorChromeYellow;           // YELLOW
-
-    theme.block_border_color  = GColorBlack;
-    theme.drop_shadow_color   = GColorFromRGB(96, 96, 96);
-    theme.select_color        = GColorWhite;
-    theme.score_accent_color  = GColorRichBrilliantLavender;
-    break;
-  case 2: // TODO: make an actual interesting comprehensive theme (esp. for blocks)
-    theme.window_bg_color         = GColorFromRGB(96, 0, 0);  // RED
-    theme.window_header_color     = GColorWhite;
-    theme.window_label_text_color = GColorWhite;
-    theme.window_label_bg_color   = GColorBlack;
-    theme.window_label_bg_inactive_color = GColorBlack;
-    theme.grid_bg_color           = GColorWhite;
-    theme.grid_lines_color        = GColorCeleste;
-
-    theme.block_color[SQUARE] = GColorFromRGB(196, 0, 0);     // RED
-    theme.block_color[LINE]   = GColorFromRGB(0, 170, 0);     // GREEN
-    theme.block_color[J]      = GColorFromRGB(0, 0, 196);     // BLUE
-    theme.block_color[L]      = GColorFromRGB(255, 85, 0);    // ORANGE
-    theme.block_color[S]      = GColorFromRGB(196, 0, 196);   // PURPLE
-    theme.block_color[Z]      = GColorFromRGB(0, 196, 196);   // CYAN
-    theme.block_color[T]      = GColorChromeYellow;           // YELLOW
-
-    theme.block_border_color  = GColorBlack;
-    theme.drop_shadow_color   = GColorFromRGB(96, 96, 96);
-    theme.select_color        = GColorWhite;
-    theme.score_accent_color  = GColorCeleste;
-    break;
-  default:
-    break;
-  }
+  int i = theme_id % THEMES_COUNT;
+  resource_load_byte_range(resource_get_handle(RESOURCE_ID_THEMES), i*THEMES_BYTES, (uint8_t*)&theme, THEMES_BYTES);
 }

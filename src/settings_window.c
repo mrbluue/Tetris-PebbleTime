@@ -6,6 +6,11 @@
 #define SETTINGS_COUNT 4
 #define SETTINGS_LABEL_HEIGHT 30
 
+#define SETTINGS_LABEL_PAD_L 14
+#define SETTINGS_LABEL_TOP_Y 48
+#define SETTINGS_INPUT_PAD_R 10
+#define SETTINGS_INPUT_TOP_Y 52
+
 static Window *s_window;
 
 static Layer     *s_select_layer;
@@ -17,15 +22,15 @@ static TextLayer *s_settings_input_layer[SETTINGS_COUNT];
 static GPath     *s_selector_path; // arrow for menu select
 
 static char *MENU_OPTION_LABELS[SETTINGS_COUNT] = {"Drop Shadows", "Rotation", "Backlight", "Theme"};
-static char *MENU_INPUT_LABELS[SETTINGS_COUNT][3] = {{"OFF", "ON"}, {"Clockwise", "Cnt. Clock."}, {"Default", "Alw. ON"}, {"< 1 >", "< 2 >", "< 3 >"}};
+static char *MENU_INPUT_LABELS[SETTINGS_COUNT][THEMES_COUNT] = {{"OFF", "ON"}, {"Clockwise", "Cnt. Clock."}, {"Default", "Alw. ON"}, {"< 1 >", "< 2 >", "< 3 >", "< 4 >"}};
+static int   MENU_INPUT_VALUES[SETTINGS_COUNT] = {0, 0, 0, 0};
 #ifdef PBL_PLATFORM_CHALK
-static int   MENU_OPTION_ROUND_OFFSET[SETTINGS_COUNT] = {8, 4, 16, 38};
+  static int MENU_OPTION_ROUND_OFFSET[SETTINGS_COUNT] = {8, 4, 12, 34};
 #endif
+
 static int current_setting = 0;
 
 static AppTimer *s_timer = NULL;
-
-static int MENU_INPUT_VALUES[SETTINGS_COUNT];
 
 static void prv_window_load(Window *window);
 static void prv_window_unload(Window *window);
@@ -75,14 +80,32 @@ static void prv_window_load(Window *window){
   layer_add_child(window_layer, text_layer_get_layer(s_header_layer));
   
   for (int i=0; i<SETTINGS_COUNT; i++){
-    s_settings_label_layer[i] = text_layer_create(GRect(PBL_IF_ROUND_ELSE(14 + MENU_OPTION_ROUND_OFFSET[i], 14), 48 + i * SETTINGS_LABEL_HEIGHT, bounds_width, SETTINGS_LABEL_HEIGHT));
+    s_settings_label_layer[i] = text_layer_create(
+      GRect(
+        PBL_IF_RECT_ELSE(
+          SETTINGS_LABEL_PAD_L, 
+          SETTINGS_LABEL_PAD_L + MENU_OPTION_ROUND_OFFSET[i]
+        ),
+        SETTINGS_LABEL_TOP_Y + i * SETTINGS_LABEL_HEIGHT, 
+        bounds_width, 
+        SETTINGS_LABEL_HEIGHT
+      ));
     text_layer_set_text(s_settings_label_layer[i], MENU_OPTION_LABELS[i]);
     text_layer_set_font(s_settings_label_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_18));
     text_layer_set_background_color(s_settings_label_layer[i], GColorClear);
     text_layer_set_text_color(s_settings_label_layer[i], theme.window_label_text_color);
     layer_add_child(window_layer, text_layer_get_layer(s_settings_label_layer[i]));
 
-    s_settings_input_layer[i] = text_layer_create(GRect(0, 52 + i * SETTINGS_LABEL_HEIGHT, PBL_IF_ROUND_ELSE(bounds_width - (10 + MENU_OPTION_ROUND_OFFSET[i]), bounds_width - 10), SETTINGS_LABEL_HEIGHT));
+    s_settings_input_layer[i] = text_layer_create(
+      GRect(
+        0, 
+        SETTINGS_INPUT_TOP_Y + i * SETTINGS_LABEL_HEIGHT, 
+        PBL_IF_RECT_ELSE(
+          bounds_width - SETTINGS_INPUT_PAD_R, 
+          bounds_width - (SETTINGS_INPUT_PAD_R + MENU_OPTION_ROUND_OFFSET[i])
+        ), 
+        SETTINGS_LABEL_HEIGHT
+      ));
     text_layer_set_text(s_settings_input_layer[i], MENU_INPUT_LABELS[i][0]);
     text_layer_set_text_alignment(s_settings_input_layer[i], GTextAlignmentRight);
     text_layer_set_font(s_settings_input_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
@@ -130,7 +153,7 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
   int y_off = current_setting * SETTINGS_LABEL_HEIGHT;
 
   #ifdef PBL_PLATFORM_CHALK
-  x_off += MENU_OPTION_ROUND_OFFSET[current_setting];
+  x_off += MENU_OPTION_ROUND_OFFSET[current_setting] - 2;
   #endif
 
   selector[0] = GPoint(x_off + 10, 57 + y_off);
@@ -152,7 +175,7 @@ static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
     GPoint block[4];
     int block_x = 2 * i - ((i+1) % 2);
     if(i==0){block_x = 0;}
-    int block_y = 2 + 4 * (i % 2);
+    int block_y = 3 + 4 * (i % 2);
     make_block(block, i, block_x, block_y);
     graphics_context_set_fill_color(ctx, theme.block_color[i]);
     for(int i=0; i<4; i++){
@@ -179,6 +202,8 @@ static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
 static void prv_up_click_handler(ClickRecognizerRef recognizer, void *context) {
   if(current_setting > 0) 
     current_setting -= 1;
+  else
+    current_setting = SETTINGS_COUNT - 1;
   
   layer_mark_dirty(s_select_layer);
 }
@@ -189,7 +214,7 @@ static void prv_select_click_handler(ClickRecognizerRef recognizer, void *contex
   if(current_setting < 3){
     *value_to_change = (*value_to_change + 1) % 2;
   } else {
-    *value_to_change = (*value_to_change + 1) % 3;
+    *value_to_change = (*value_to_change + 1) % THEMES_COUNT;
   }
 
   if(current_setting == 2){
@@ -204,6 +229,7 @@ static void prv_select_click_handler(ClickRecognizerRef recognizer, void *contex
       app_timer_reschedule(s_timer, 1500);
     }
     set_theme(*value_to_change); 
+    text_layer_set_text_color(s_header_layer, theme.window_header_color);
     for (int i=0; i<SETTINGS_COUNT; i++){
       text_layer_set_text_color(s_settings_label_layer[i], theme.window_label_text_color);
       text_layer_set_text_color(s_settings_input_layer[i], theme.window_label_text_color);
@@ -217,6 +243,8 @@ static void prv_select_click_handler(ClickRecognizerRef recognizer, void *contex
 static void prv_down_click_handler(ClickRecognizerRef recognizer, void *context) {
   if(current_setting < SETTINGS_COUNT - 1) 
     current_setting += 1;
+  else
+    current_setting = 0;
   layer_mark_dirty(s_select_layer);
 }
 
@@ -247,48 +275,20 @@ static void prv_preview_hide_tick(void *data){
 // -------------------------- //
 
 static void prv_load_settings() {
-  for(int i=0; i<SETTINGS_COUNT; i++){
-    switch (i) {
-      case 0:
-        MENU_INPUT_VALUES[i] = game_settings.set_drop_shadow;
-        break;
-      case 1:
-        MENU_INPUT_VALUES[i] = game_settings.set_counterclockwise;
-        game_settings.set_counterclockwise = MENU_INPUT_VALUES[i] % 2;
-        break;
-      case 2:
-        MENU_INPUT_VALUES[i] = game_settings.set_backlight;
-        game_settings.set_backlight = MENU_INPUT_VALUES[i] % 3;
-        break;
-      case 3:
-        MENU_INPUT_VALUES[i] = game_settings.set_theme;
-        game_settings.set_theme = MENU_INPUT_VALUES[i] % 3;
-        break;
-      default:
-        break;
-    }
+  MENU_INPUT_VALUES[0] = game_settings.set_drop_shadow % 2;
+  MENU_INPUT_VALUES[1] = game_settings.set_counterclockwise % 2;
+  MENU_INPUT_VALUES[2] = game_settings.set_backlight % 2;
+  MENU_INPUT_VALUES[3] = game_settings.set_theme % THEMES_COUNT;
+  
+  for(int i=0; i<SETTINGS_COUNT; i++) {
     text_layer_set_text(s_settings_input_layer[i], MENU_INPUT_LABELS[i][MENU_INPUT_VALUES[i]]);
   }
 }
 
 static void prv_save_settings() {
-  for(int i=0; i<SETTINGS_COUNT; i++){
-    switch (i) {
-      case 0:
-        game_settings.set_drop_shadow = MENU_INPUT_VALUES[i] % 2;
-        break;
-      case 1:
-        game_settings.set_counterclockwise = MENU_INPUT_VALUES[i] % 2;
-        break;
-      case 2:
-        game_settings.set_backlight = MENU_INPUT_VALUES[i] % 3;
-        break;
-      case 3:
-        game_settings.set_theme = MENU_INPUT_VALUES[i] % 3;
-        break;
-      default:
-        break;
-    }
-  }
+  game_settings.set_drop_shadow = MENU_INPUT_VALUES[0] % 2;
+  game_settings.set_counterclockwise = MENU_INPUT_VALUES[1] % 2;
+  game_settings.set_backlight = MENU_INPUT_VALUES[2] % 2;
+  game_settings.set_theme = MENU_INPUT_VALUES[3] % THEMES_COUNT;
   persist_write_data(GAME_SETTINGS_KEY, &game_settings, sizeof(GameSettings));
 }

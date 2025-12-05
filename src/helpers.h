@@ -31,6 +31,9 @@
   #define SCREEN_HEIGHT 168
 #endif
 
+#define THEMES_COUNT 4
+#define THEMES_BYTES 18
+
 enum GameStatus {
 	GameStatusPlaying,
 	GameStatusPaused,
@@ -42,13 +45,13 @@ typedef struct {
   GPoint block[4];
   GPoint next_block[4];
   uint8_t rotation;
-  int block_type;
-  int next_block_type;
+  int8_t block_type;
+  int8_t next_block_type;
   uint8_t block_X;
   uint8_t block_Y;
-  uint8_t next_block_X;
-  uint8_t next_block_Y;
-  uint8_t lines_cleared;
+  // uint8_t next_block_X;
+  // uint8_t next_block_Y;
+  uint16_t lines_cleared;
   uint8_t level;
   uint32_t score;
 } GameState;
@@ -56,8 +59,8 @@ typedef struct {
 typedef struct {
   char name[4];
   uint32_t score;
-  uint8_t level; // TODO
-  char date[8];  // TODO
+  // uint8_t level; // TODO
+  // char date[8];  // TODO
 } GameScore;
 
 typedef struct {
@@ -84,8 +87,8 @@ typedef struct {
 
 extern GameSettings game_settings;
 extern Theme theme;
+
 extern GFont s_font_title;
-extern GFont s_font_menu;
 extern GFont s_font_mono_small;
 extern GFont s_font_mono_big;
 

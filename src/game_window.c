@@ -318,26 +318,26 @@ static void prv_select_long_click_handler(ClickRecognizerRef recognizer, void *c
 
 static void prv_down_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   if (s_status != GameStatusPlaying) { return; }
-  APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN PRESS");
+  // APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN PRESS");
   s_longpress_movement_direction = RIGHT;
   s_longpress_timer = app_timer_register(s_longpress_tick, prv_s_longpress_tick, NULL);
 }
 
 static void prv_down_long_release_handler(ClickRecognizerRef recognizer, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN RELEASE");
+  // APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN RELEASE");
   s_longpress_movement_direction = 0;
   s_longpress_timer = NULL;
 }
 
 static void prv_up_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   if (s_status != GameStatusPlaying) { return; }
-  APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN PRESS");
+  // APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN PRESS");
   s_longpress_movement_direction = LEFT;
   s_longpress_timer = app_timer_register(s_longpress_tick, prv_s_longpress_tick, NULL);
 }
 
 static void prv_up_long_release_handler(ClickRecognizerRef recognizer, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN RELEASE");
+  // APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN RELEASE");
   s_longpress_movement_direction = 0;
   s_longpress_timer = NULL;
 }
@@ -349,8 +349,8 @@ static void prv_click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, prv_select_click_handler);
 
   window_long_click_subscribe(BUTTON_ID_SELECT, 500, prv_select_long_click_handler, NULL);
-  window_long_click_subscribe(BUTTON_ID_DOWN, 250, prv_down_long_click_handler, prv_down_long_release_handler);
-  window_long_click_subscribe(BUTTON_ID_UP, 250, prv_up_long_click_handler, prv_up_long_release_handler);
+  window_long_click_subscribe(BUTTON_ID_DOWN, 200, prv_down_long_click_handler, prv_down_long_release_handler);
+  window_long_click_subscribe(BUTTON_ID_UP, 200, prv_up_long_click_handler, prv_up_long_release_handler);
 }
 
 // ------------------------ //
@@ -455,11 +455,10 @@ static void prv_game_cycle() {
     s_game_state.next_block_type = rand() % 7;
     s_game_state.rotation = 0;
     s_game_state.block_X = 5;
-    s_game_state.block_Y = 0;
-    s_game_state.next_block_X = 0;
-    s_game_state.next_block_Y = 0;
+    s_game_state.block_Y = s_game_state.block_type == LINE ? 0 : 1;
     make_block(s_game_state.block, s_game_state.block_type, s_game_state.block_X, s_game_state.block_Y);
-    make_block(s_game_state.next_block, s_game_state.next_block_type, s_game_state.next_block_X, s_game_state.next_block_Y);
+    make_block(s_game_state.next_block, s_game_state.next_block_type, 0, 0);
+    // TODO check if blocks are all free or lose
   }
   else {
     // Handle the current block.
@@ -752,7 +751,7 @@ static void prv_load_game() {
   s_tick_time = s_max_tick - (s_tick_interval * s_game_state.level);
 
   make_block(s_game_state.block,      s_game_state.block_type,      s_game_state.block_X,      s_game_state.block_Y);
-  make_block(s_game_state.next_block, s_game_state.next_block_type, s_game_state.next_block_X, s_game_state.next_block_Y);
+  make_block(s_game_state.next_block, s_game_state.next_block_type, 0, 0);
 
   if (s_game_state.rotation != 0) {
     for (int i=0; i<s_game_state.rotation; i++) {

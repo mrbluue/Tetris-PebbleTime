@@ -18,15 +18,21 @@
 #define MENU_GRID_COLS 10
 #define MENU_GRID_ROWS 9
 
+#define MENU_GRID_STROKE 2
+
 #if defined(PBL_PLATFORM_CHALK)
   #define MENU_GRID_X_OFFSET 12
   #define MENU_GRID_X 25
   #define MENU_GRID_Y 48
+  #define MENU_BITMAP_X (MENU_GRID_X_OFFSET + MENU_GRID_COL_WIDTH + MENU_GRID_STROKE)
 #else 
   #define MENU_GRID_X_OFFSET 7
   #define MENU_GRID_X 7
-  #define MENU_GRID_Y 48
+  #define MENU_GRID_Y 44
+  #define MENU_BITMAP_X (MENU_GRID_X_OFFSET + MENU_GRID_STROKE)
 #endif
+
+#define MENU_BITMAP_Y (MENU_GRID_Y + MENU_GRID_ROW_HEIGHT + MENU_GRID_STROKE)
 
 #define MENU_GRID_WIDTH  (MENU_GRID_COLS * MENU_GRID_COL_WIDTH)
 #define MENU_GRID_HEIGHT (MENU_GRID_ROWS * MENU_GRID_ROW_HEIGHT)
@@ -37,17 +43,17 @@ GameSettings game_settings;
 Theme theme;
 
 GFont s_font_title;
-GFont s_font_menu;
 GFont s_font_mono_small;
 GFont s_font_mono_big;
 
-char *MENU_OPTION_LABELS[4] = {"CONTINUE", "NEW GAME", "HIGH SCORE", "SETTINGS"};
-
 static Window    *s_window;
 static TextLayer *s_title_layer;
-static TextLayer *s_menu_option_text_layer[4];
 
 static Layer *s_title_pane_layer = NULL;
+
+static GBitmap *s_menu_option_bitmap;
+static GBitmap *s_menu_option_bitmap_sub;
+static BitmapLayer *s_menu_option_bitmap_layer;
 
 static bool can_load = false; // is there a game to continue
 static bool continue_label_showing = false; 
@@ -122,14 +128,14 @@ static void click_config_provider(void *context) {
 static void draw_title_pane(Layer *layer, GContext *ctx) {
   int grid_origin_y = MENU_GRID_Y;
   if(!can_load) {
-    grid_origin_y += (2 * MENU_GRID_BLOCK_SIZE);
+    grid_origin_y += (2 * MENU_GRID_BLOCK_SIZE); // if there's no CONTINUE option, start the grid 2 blocks down
   }
 
   graphics_context_set_fill_color(ctx, GColorDarkGray);
   graphics_fill_rect(ctx, GRect(0, grid_origin_y, SCREEN_WIDTH, SCREEN_HEIGHT - grid_origin_y), 0, GCornerNone);
 
   graphics_context_set_stroke_color(ctx, GColorBlack);
-  graphics_context_set_stroke_width(ctx, 2);
+  graphics_context_set_stroke_width(ctx, MENU_GRID_STROKE);
 
   if(menu_option >= 0){
     graphics_context_set_fill_color(ctx, theme.block_color[menu_option]);
@@ -172,30 +178,24 @@ static void window_load(Window *window) {
   text_layer_set_text_color(s_title_layer, GColorWhite);
   layer_add_child(window_layer, text_layer_get_layer(s_title_layer));
   
-  for (int i=0; i<MENU_OPTIONS; i++){
-    s_menu_option_text_layer[i] = text_layer_create((GRect) { .origin = { 0, 60 + i * MENU_OPTION_HEIGHT }, .size = { bounds_width, MENU_OPTION_HEIGHT } });
-    text_layer_set_text(s_menu_option_text_layer[i], MENU_OPTION_LABELS[i]);
-    text_layer_set_font(s_menu_option_text_layer[i], s_font_menu);
-    text_layer_set_text_alignment(s_menu_option_text_layer[i], GTextAlignmentCenter);
-    text_layer_set_background_color(s_menu_option_text_layer[i], GColorClear);
-    text_layer_set_text_color(s_menu_option_text_layer[i], GColorWhite);
-    if (i > 0) {
-      layer_add_child(window_layer, text_layer_get_layer(s_menu_option_text_layer[i]));
-    }
-  }
-
+  s_menu_option_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MENU_OPTIONS);
+  s_menu_option_bitmap_sub = gbitmap_create_as_sub_bitmap(s_menu_option_bitmap, GRect(0, 26, 127, 62));
+  
+  s_menu_option_bitmap_layer = bitmap_layer_create(GRect(MENU_BITMAP_X, MENU_GRID_Y + 15, 127, 88));
+  bitmap_layer_set_alignment(s_menu_option_bitmap_layer, GAlignBottom);
+  bitmap_layer_set_compositing_mode(s_menu_option_bitmap_layer, GCompOpSet);
+  bitmap_layer_set_bitmap(s_menu_option_bitmap_layer, s_menu_option_bitmap_sub);
+  layer_add_child(window_layer, bitmap_layer_get_layer(s_menu_option_bitmap_layer));
 }
 
 static void window_appear(Window *window) {
-  Layer *window_layer = window_get_root_layer(window);
-
   find_save();
 
   if(can_load && !continue_label_showing){
-    layer_add_child(window_layer, text_layer_get_layer(s_menu_option_text_layer[0]));
+    bitmap_layer_set_bitmap(s_menu_option_bitmap_layer, s_menu_option_bitmap);
     continue_label_showing = true;
   } else if(!can_load && continue_label_showing) {
-    text_layer_destroy(s_menu_option_text_layer[0]);
+    bitmap_layer_set_bitmap(s_menu_option_bitmap_layer, s_menu_option_bitmap_sub);
     continue_label_showing = false;
   }
 }
@@ -203,15 +203,12 @@ static void window_appear(Window *window) {
 static void window_unload(Window *window) {
   // TODO / REMINDER - Add any new objects here for destruction on exit!
   text_layer_destroy(s_title_layer);
-  for (int i=0; i<MENU_OPTIONS; i++){
-    text_layer_destroy(s_menu_option_text_layer[i]);
-  }
+
   layer_destroy(s_title_pane_layer);
 }
 
 static void init(void) {
   s_font_title = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_AQUARIUS_BOLD_20));   // keeping the title as a font until I figure out for good what this thing should be named
-  s_font_menu = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_AQUARIUS_MONO_13));    
   s_font_mono_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_8)); // font for high score page
   s_font_mono_big = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_16));  // font for high score name input
 
