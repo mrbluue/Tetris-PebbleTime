@@ -18,5 +18,7 @@ I am a big fan of having this game on my wrist, so I needed to update it to add 
 
 There are still quite a few things to refine, and a couple things I want to add:
 - Flash or animation, anything to indicate when you get 4 lines.
+- The max score currently is 999999, but there's nothing to handle reaching that score.
+- The labels around the game window could use being tightened up.
 - Support for Pebble Time 2, with maybe touch screen input for a hold piece?
 - Maybe support for B&W screen Pebble 2 and Pebble 2 Duo? (Not a priority.)
