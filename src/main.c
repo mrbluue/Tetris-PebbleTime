@@ -9,47 +9,83 @@
 #include "settings_window.h"
 
 #define MENU_OPTIONS 4 
-#define MENU_OPTION_HEIGHT 26 
 
-#define MENU_GRID_COL_WIDTH 13
-#define MENU_GRID_ROW_HEIGHT 13
-#define MENU_GRID_BLOCK_SIZE 13
-
-#define MENU_GRID_COLS 10
-#define MENU_GRID_ROWS 9
-
-#define MENU_GRID_STROKE 2
-
-#if defined(PBL_PLATFORM_CHALK)
-  #define MENU_GRID_X_OFFSET 12
-  #define MENU_GRID_X 25
+#ifdef PBL_PLATFORM_EMERY
+  #define MENU_TITLE_X 13
+  #define MENU_TITLE_Y 18
+  #define MENU_TITLE_W 174
+  #define MENU_TITLE_H 19
+  
+  #define MENU_GRID_BLOCK_SIZE 20
+  #define MENU_GRID_COLS 10
+  #define MENU_GRID_ROWS 9
+  #define MENU_GRID_STROKE 2
+  #define MENU_GRID_X_OFFSET 0
   #define MENU_GRID_Y 48
-  #define MENU_BITMAP_X (MENU_GRID_X_OFFSET + MENU_GRID_COL_WIDTH + MENU_GRID_STROKE)
+
+  #define MENU_OPTIONS_X 4
+  #define MENU_OPTIONS_Y (MENU_GRID_Y + MENU_GRID_BLOCK_SIZE + MENU_GRID_STROKE + 2)
+  #define MENU_OPTIONS_W 192
+  #define MENU_OPTIONS_H 133
+  #define MENU_OPTIONS_TOPCUT 26
+#elif defined(PBL_PLATFORM_CHALK)
+  #define MENU_TITLE_X 33
+  #define MENU_TITLE_Y 28
+  #define MENU_TITLE_W 118
+  #define MENU_TITLE_H 13
+  
+  #define MENU_GRID_BLOCK_SIZE 13
+  #define MENU_GRID_COLS 10
+  #define MENU_GRID_ROWS 9
+  #define MENU_GRID_STROKE 2
+  #define MENU_GRID_X_OFFSET 12
+  #define MENU_GRID_Y 48
+
+  #define MENU_OPTIONS_X (MENU_GRID_X_OFFSET + MENU_GRID_BLOCK_SIZE + MENU_GRID_STROKE)
+  #define MENU_OPTIONS_Y (MENU_GRID_Y + MENU_GRID_BLOCK_SIZE + MENU_GRID_STROKE)
+  #define MENU_OPTIONS_W 127
+  #define MENU_OPTIONS_H 88
+  #define MENU_OPTIONS_TOPCUT 26
 #else 
+  #define MENU_TITLE_X 13
+  #define MENU_TITLE_Y 20
+  #define MENU_TITLE_W 118
+  #define MENU_TITLE_H 13
+
+  #define MENU_GRID_BLOCK_SIZE 13
+  #define MENU_GRID_COLS 10
+  #define MENU_GRID_ROWS 9
+  #define MENU_GRID_STROKE 2
   #define MENU_GRID_X_OFFSET 7
-  #define MENU_GRID_X 7
   #define MENU_GRID_Y 44
-  #define MENU_BITMAP_X (MENU_GRID_X_OFFSET + MENU_GRID_STROKE)
+
+  #define MENU_OPTIONS_X (MENU_GRID_X_OFFSET + MENU_GRID_STROKE)
+  #define MENU_OPTIONS_Y (MENU_GRID_Y + MENU_GRID_BLOCK_SIZE + MENU_GRID_STROKE)
+  #define MENU_OPTIONS_W 127
+  #define MENU_OPTIONS_H 88
+  #define MENU_OPTIONS_TOPCUT 26
 #endif
 
-#define MENU_BITMAP_Y (MENU_GRID_Y + MENU_GRID_ROW_HEIGHT + MENU_GRID_STROKE)
+#define MENU_OPTION_HEIGHT (MENU_GRID_BLOCK_SIZE*2) 
 
-#define MENU_GRID_WIDTH  (MENU_GRID_COLS * MENU_GRID_COL_WIDTH)
-#define MENU_GRID_HEIGHT (MENU_GRID_ROWS * MENU_GRID_ROW_HEIGHT)
-#define MENU_GRID_X_END  (MENU_GRID_X + MENU_GRID_COLS * MENU_GRID_COL_WIDTH)
-#define MENU_GRID_Y_END  (MENU_GRID_Y + MENU_GRID_ROWS * MENU_GRID_ROW_HEIGHT)
+#define MENU_GRID_WIDTH  (MENU_GRID_COLS * MENU_GRID_BLOCK_SIZE)
+#define MENU_GRID_HEIGHT (MENU_GRID_ROWS * MENU_GRID_BLOCK_SIZE)
+#define MENU_GRID_X_END  (MENU_GRID_X_OFFSET + MENU_GRID_COLS * MENU_GRID_BLOCK_SIZE)
+#define MENU_GRID_Y_END  (MENU_GRID_Y + MENU_GRID_ROWS * MENU_GRID_BLOCK_SIZE)
 
 GameSettings game_settings;
 Theme theme;
 
-GFont s_font_title;
+GFont s_font_mono_xsmall;
 GFont s_font_mono_small;
 GFont s_font_mono_big;
 
 static Window    *s_window;
-static TextLayer *s_title_layer;
 
 static Layer *s_title_pane_layer = NULL;
+
+static GBitmap *s_menu_title_bitmap;
+static BitmapLayer *s_menu_title_bitmap_layer;
 
 static GBitmap *s_menu_option_bitmap;
 static GBitmap *s_menu_option_bitmap_sub;
@@ -170,18 +206,17 @@ static void window_load(Window *window) {
   layer_set_update_proc(s_title_pane_layer, draw_title_pane);
   layer_add_child(window_layer, s_title_pane_layer);
   
-  s_title_layer = text_layer_create((GRect) { .origin = { 0, 20 }, .size = { bounds_width, 20 } });
-  text_layer_set_text(s_title_layer, "Pebtris"); 
-  text_layer_set_font(s_title_layer, s_font_title);
-  text_layer_set_text_alignment(s_title_layer, GTextAlignmentCenter);
-  text_layer_set_background_color(s_title_layer, GColorClear);
-  text_layer_set_text_color(s_title_layer, GColorWhite);
-  layer_add_child(window_layer, text_layer_get_layer(s_title_layer));
+  s_menu_title_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MENU_TITLE);
+  s_menu_title_bitmap_layer = bitmap_layer_create(GRect(MENU_TITLE_X, MENU_TITLE_Y, MENU_TITLE_W, MENU_TITLE_H));
+  bitmap_layer_set_alignment(s_menu_title_bitmap_layer, GAlignBottom);
+  bitmap_layer_set_compositing_mode(s_menu_title_bitmap_layer, GCompOpSet);
+  bitmap_layer_set_bitmap(s_menu_title_bitmap_layer, s_menu_title_bitmap);
+  layer_add_child(window_layer, bitmap_layer_get_layer(s_menu_title_bitmap_layer));
   
   s_menu_option_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MENU_OPTIONS);
-  s_menu_option_bitmap_sub = gbitmap_create_as_sub_bitmap(s_menu_option_bitmap, GRect(0, 26, 127, 62));
+  s_menu_option_bitmap_sub = gbitmap_create_as_sub_bitmap(s_menu_option_bitmap, GRect(0, MENU_OPTIONS_TOPCUT, MENU_OPTIONS_W, MENU_OPTIONS_H - MENU_OPTIONS_TOPCUT));
   
-  s_menu_option_bitmap_layer = bitmap_layer_create(GRect(MENU_BITMAP_X, MENU_GRID_Y + 15, 127, 88));
+  s_menu_option_bitmap_layer = bitmap_layer_create(GRect(MENU_OPTIONS_X, MENU_OPTIONS_Y, MENU_OPTIONS_W, MENU_OPTIONS_H));
   bitmap_layer_set_alignment(s_menu_option_bitmap_layer, GAlignBottom);
   bitmap_layer_set_compositing_mode(s_menu_option_bitmap_layer, GCompOpSet);
   bitmap_layer_set_bitmap(s_menu_option_bitmap_layer, s_menu_option_bitmap_sub);
@@ -202,13 +237,22 @@ static void window_appear(Window *window) {
 
 static void window_unload(Window *window) {
   // TODO / REMINDER - Add any new objects here for destruction on exit!
-  text_layer_destroy(s_title_layer);
-
   layer_destroy(s_title_pane_layer);
+
+  bitmap_layer_destroy(s_menu_title_bitmap_layer);
+  bitmap_layer_destroy(s_menu_option_bitmap_layer);
+
+  gbitmap_destroy(s_menu_title_bitmap);
+  gbitmap_destroy(s_menu_option_bitmap);
+  gbitmap_destroy(s_menu_option_bitmap_sub);
 }
 
 static void init(void) {
-  s_font_title = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_AQUARIUS_BOLD_20));   // keeping the title as a font until I figure out for good what this thing should be named
+  #ifdef PBL_PLATFORM_EMERY
+  s_font_mono_xsmall = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_19));
+  #else
+  s_font_mono_xsmall = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_14));
+  #endif
   s_font_mono_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_8)); // font for high score page
   s_font_mono_big = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_16));  // font for high score name input
 

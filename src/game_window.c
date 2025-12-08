@@ -3,27 +3,49 @@
 #include "helpers.h"
 #include "score_window.h"
 
-#if defined(PBL_PLATFORM_CHALK)
-  #define SCREEN_WIDTH 180
-  #define SCREEN_HEIGHT 180
+#ifdef PBL_PLATFORM_EMERY
+  #define LABEL_HEIGHT 28
+#else
+  #define LABEL_HEIGHT 20 
+#endif
 
+#if defined(PBL_PLATFORM_CHALK)
   #define GRID_PIXEL_WIDTH (BLOCK_SIZE * GRID_BLOCK_WIDTH)
   #define GRID_PIXEL_HEIGHT (BLOCK_SIZE * GRID_BLOCK_HEIGHT)
 
   #define GRID_ORIGIN_X ((SCREEN_WIDTH - GRID_PIXEL_WIDTH) / 2)
   #define GRID_ORIGIN_Y ((SCREEN_HEIGHT - GRID_PIXEL_HEIGHT) / 2)
+
+  #define LABEL_SCORE_X 0
+  #define LABEL_SCORE_Y (GRID_ORIGIN_Y + BLOCK_SIZE * 7)
+  #define LABEL_LEVEL_X (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1)
+  #define LABEL_LEVEL_Y (LABEL_SCORE_Y)
+  #define LABEL_LINES_X (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1)
+  #define LABEL_LINES_Y (LABEL_LEVEL_Y + LABEL_HEIGHT)
+  #define LABEL_PAUSE_Y (LABEL_SCORE_Y + 1)
+  #define LABEL_PAUSE_H (BLOCK_SIZE * 3 - 1)
+
+  #define LABEL_WIDTH (SCREEN_WIDTH - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH))
 #else
   #define GRID_PIXEL_WIDTH (BLOCK_SIZE * GRID_BLOCK_WIDTH)
   #define GRID_PIXEL_HEIGHT (BLOCK_SIZE * GRID_BLOCK_HEIGHT)
 
-  #define GRID_ORIGIN_X 0
-  #define GRID_ORIGIN_Y 0
+  #define GRID_PADDING ((SCREEN_HEIGHT - GRID_PIXEL_HEIGHT) / 2)
+  
+  #define GRID_ORIGIN_X (GRID_PADDING) // have same padding to the left as top
+  #define GRID_ORIGIN_Y (GRID_PADDING)
+  
+  #define LABEL_X (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + GRID_PADDING + 1)
+  #define LABEL_SCORE_X (LABEL_X)
+  #define LABEL_SCORE_Y (GRID_ORIGIN_Y + BLOCK_SIZE * 6)
+  #define LABEL_LEVEL_X (LABEL_X)
+  #define LABEL_LEVEL_Y (GRID_ORIGIN_Y + BLOCK_SIZE * 6 + LABEL_HEIGHT*2)
+  #define LABEL_LINES_X (LABEL_X)
+  #define LABEL_LINES_Y (GRID_ORIGIN_Y + BLOCK_SIZE * 6 + LABEL_HEIGHT*3)
+  #define LABEL_PAUSE_Y (LABEL_SCORE_Y + 1)
+  #define LABEL_PAUSE_H (BLOCK_SIZE * 3 - 1)
+  #define LABEL_WIDTH (SCREEN_WIDTH - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH) - (2 * GRID_PADDING))
 #endif
-
-#define LABEL_HEIGHT 20 
-
-#define LEFT -1
-#define RIGHT 1
 
 static Window *s_window;
 
@@ -49,15 +71,15 @@ static AppTimer *s_lockdelay_timer = NULL;
 static int s_lockdelay_tick = 500;
 static int s_lockdelay_maxmoves = 15;
 
-static char s_score_str[10];
+static char s_score_str[18];
 static char s_level_str[10];
+static char s_lines_str[12];
 
 static Layer     *s_bg_layer = NULL;
 static Layer     *s_game_pane_layer = NULL;
-static TextLayer *s_score_label_layer;
 static TextLayer *s_score_layer;
-static TextLayer *s_level_label_layer;
 static TextLayer *s_level_layer;
+static TextLayer *s_lines_layer;
 static TextLayer *s_paused_label_layer;
 
 static void prv_game_window_push();
@@ -141,98 +163,45 @@ static void prv_window_load(Window *window) {
   layer_set_update_proc(s_game_pane_layer, prv_draw_game);
   layer_add_child(window_layer, s_game_pane_layer);
 
-  s_score_label_layer = text_layer_create((GRect) { 
-    .origin = { 
-       GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1,                // + 1 to avoid overlapping with grid edge
-      (GRID_ORIGIN_Y + BLOCK_SIZE * PBL_IF_RECT_ELSE(6, 9)) // place layer 6 or 9 blocks from top vertical coordinate of play area
-    }, 
-    .size = { 
-      bounds_width - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH),    // as wide as the space to the right of the play area
-      LABEL_HEIGHT 
-    } 
-  });
-
-  text_layer_set_text(s_score_label_layer, "Score");
-  text_layer_set_text_alignment(s_score_label_layer, GTextAlignmentCenter);
-  text_layer_set_background_color(s_score_label_layer, theme.window_label_bg_color);
-  text_layer_set_text_color(s_score_label_layer, theme.window_label_text_color);
-  layer_add_child(window_layer, text_layer_get_layer(s_score_label_layer));
-
-  s_score_layer = text_layer_create((GRect) { 
-    .origin = { 
-       GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1, 
-      (GRID_ORIGIN_Y + BLOCK_SIZE * PBL_IF_RECT_ELSE(7, 10) + LABEL_HEIGHT) // 7 or 10 blocks from top, below previous label
-    }, 
-    .size = { 
-      bounds_width - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH),
-      LABEL_HEIGHT
-    } 
-  });
+  s_score_layer = text_layer_create(GRect(LABEL_SCORE_X, LABEL_SCORE_Y, LABEL_WIDTH, BLOCK_SIZE * 4));
+  text_layer_set_font(s_score_layer, s_font_mono_xsmall);
   text_layer_set_text_alignment(s_score_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_score_layer, theme.window_label_bg_color);
   text_layer_set_text_color(s_score_layer, theme.window_label_text_color);
   layer_add_child(window_layer, text_layer_get_layer(s_score_layer));
 
-  s_level_label_layer = text_layer_create((GRect) { 
-    .origin = { 
-      PBL_IF_RECT_ELSE(GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1,              0), // align to the left of play area on Round screen
-      PBL_IF_RECT_ELSE(GRID_ORIGIN_Y + BLOCK_SIZE * 8 + LABEL_HEIGHT * 2, GRID_ORIGIN_Y + BLOCK_SIZE * 7)
-    }, 
-    .size = { 
-      bounds_width - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH),
-      LABEL_HEIGHT 
-    } 
-  });
-  text_layer_set_text(s_level_label_layer, "Level");
-  text_layer_set_text_alignment(s_level_label_layer, GTextAlignmentCenter);
-  text_layer_set_background_color(s_level_label_layer, theme.window_label_bg_color);
-  text_layer_set_text_color(s_level_label_layer, theme.window_label_text_color);
-  layer_add_child(window_layer, text_layer_get_layer(s_level_label_layer));
-
-  s_level_layer = text_layer_create((GRect) { 
-    .origin = { 
-      PBL_IF_RECT_ELSE(GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1,              0),
-      PBL_IF_RECT_ELSE(GRID_ORIGIN_Y + BLOCK_SIZE * 9 + LABEL_HEIGHT * 3, GRID_ORIGIN_Y + BLOCK_SIZE * 8 + LABEL_HEIGHT) 
-    }, 
-    .size = { 
-      bounds_width - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH),
-      LABEL_HEIGHT 
-    } 
-  });
+  s_level_layer = text_layer_create(GRect(LABEL_LEVEL_X, LABEL_LEVEL_Y, LABEL_WIDTH, LABEL_HEIGHT));
+  text_layer_set_font(s_level_layer, s_font_mono_xsmall);
   text_layer_set_text_alignment(s_level_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_level_layer, theme.window_label_bg_color);
   text_layer_set_text_color(s_level_layer, theme.window_label_text_color);
   layer_add_child(window_layer, text_layer_get_layer(s_level_layer));
 
-  s_paused_label_layer = text_layer_create((GRect) { 
-    .origin = { 
-      GRID_ORIGIN_X+1, 
-      GRID_ORIGIN_Y + (GRID_PIXEL_HEIGHT/2) - LABEL_HEIGHT // place in middle of play area
-    }, 
-    .size = { 
-      GRID_PIXEL_WIDTH-1, 
-      LABEL_HEIGHT 
-    } 
-  });
-  text_layer_set_text(s_paused_label_layer, "Paused");
-  text_layer_set_background_color(s_paused_label_layer, theme.window_label_bg_color);
+  s_lines_layer = text_layer_create(GRect(LABEL_LINES_X, LABEL_LINES_Y, LABEL_WIDTH, BLOCK_SIZE * 4));
+  text_layer_set_font(s_lines_layer, s_font_mono_xsmall);
+  text_layer_set_text_alignment(s_lines_layer, GTextAlignmentCenter);
+  text_layer_set_background_color(s_lines_layer, theme.window_label_bg_color);
+  text_layer_set_text_color(s_lines_layer, theme.window_label_text_color);
+  layer_add_child(window_layer, text_layer_get_layer(s_lines_layer));
+
+  s_paused_label_layer = text_layer_create(GRect(GRID_ORIGIN_X+1, LABEL_PAUSE_Y, GRID_PIXEL_WIDTH-1, LABEL_PAUSE_H));
+  text_layer_set_text(s_paused_label_layer, "PAUSED");
+  text_layer_set_font(s_paused_label_layer, s_font_mono_xsmall);
+  text_layer_set_background_color(s_paused_label_layer, theme.window_label_bg_inactive_color);
   text_layer_set_text_color(s_paused_label_layer, theme.window_label_text_color);
   text_layer_set_text_alignment(s_paused_label_layer, GTextAlignmentCenter);
 
   app_focus_service_subscribe(prv_app_focus_handler);
-
 }
 
 static void prv_window_unload(Window *window) {
   app_focus_service_unsubscribe();
   
-  // app_timer_cancel(s_game_timer);
   s_game_timer      = NULL;
   s_longpress_timer = NULL;
+  s_lockdelay_timer = NULL;
 
-  text_layer_destroy(s_score_label_layer);
   text_layer_destroy(s_score_layer);
-  text_layer_destroy(s_level_label_layer);
   text_layer_destroy(s_level_layer);
   text_layer_destroy(s_paused_label_layer);
   layer_destroy(s_bg_layer);
@@ -318,26 +287,22 @@ static void prv_select_long_click_handler(ClickRecognizerRef recognizer, void *c
 
 static void prv_down_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   if (s_status != GameStatusPlaying) { return; }
-  // APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN PRESS");
   s_longpress_movement_direction = RIGHT;
   s_longpress_timer = app_timer_register(s_longpress_tick, prv_s_longpress_tick, NULL);
 }
 
 static void prv_down_long_release_handler(ClickRecognizerRef recognizer, void *context) {
-  // APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN RELEASE");
   s_longpress_movement_direction = 0;
   s_longpress_timer = NULL;
 }
 
 static void prv_up_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   if (s_status != GameStatusPlaying) { return; }
-  // APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN PRESS");
   s_longpress_movement_direction = LEFT;
   s_longpress_timer = app_timer_register(s_longpress_tick, prv_s_longpress_tick, NULL);
 }
 
 static void prv_up_long_release_handler(ClickRecognizerRef recognizer, void *context) {
-  // APP_LOG(APP_LOG_LEVEL_INFO, "LONG DOWN RELEASE");
   s_longpress_movement_direction = 0;
   s_longpress_timer = NULL;
 }
@@ -458,7 +423,7 @@ static void prv_game_cycle() {
     s_game_state.block_Y = s_game_state.block_type == LINE ? 0 : 1;
     make_block(s_game_state.block, s_game_state.block_type, s_game_state.block_X, s_game_state.block_Y);
     make_block(s_game_state.next_block, s_game_state.next_block_type, 0, 0);
-    // TODO check if blocks are all free or lose
+    // TODO? check if blocks are all free before even spawning them or lose
   }
   else {
     // Handle the current block.
@@ -617,7 +582,7 @@ static void prv_clear_rows(){
     if (s_game_state.level < 10 && s_game_state.lines_cleared >= (10 * s_game_state.level)) { // every 10 line clears, go up 1 level, up to level 10
       s_game_state.level += 1; 
       s_tick_time -= s_tick_interval;
-      update_num_layer(s_game_state.level, s_level_str, s_level_layer);
+      update_string_num_layer("LVL.", s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
       prv_save_game(); // TODO: does this cause lag? needed as anything (such as a background app) that makes you quit the game can make you lose your progress
     }    
     // Drop the above rows.
@@ -647,13 +612,13 @@ static void prv_clear_rows(){
       break;
     case 4:
       s_game_state.score += (1200 * s_game_state.level);
-      text_layer_set_text(s_score_layer, "TETRIS");
       // TODO: TETRIS flash and text(?)
       break;
     default: break;
   }
 
-  update_num_layer(s_game_state.score, s_score_str, s_score_layer);
+  update_string_num_layer("SCORE\n", s_game_state.score, s_score_str, sizeof(s_score_str), s_score_layer);
+  update_string_num_layer("LINES\n", s_game_state.lines_cleared, s_lines_str, sizeof(s_lines_str), s_lines_layer);
 
   s_lines_cleared_at_once = 0;
 }
@@ -707,8 +672,6 @@ static void prv_lockdelay_tick(void *data) {
 // -------------------------- //
 
 static void prv_setup_game() {
-  // APP_LOG(APP_LOG_LEVEL_INFO, "SETUP start");
-
   s_status = GameStatusPlaying;
   s_game_state.level = 1;
   s_game_state.lines_cleared = 0;
@@ -725,8 +688,10 @@ static void prv_setup_game() {
 
   s_tick_time = s_max_tick;
   
-  update_num_layer(0, s_score_str, s_score_layer);
-  update_num_layer(1, s_level_str, s_level_layer);  
+  update_string_num_layer("SCORE\n", 0, s_score_str, sizeof(s_score_str), s_score_layer);
+  update_string_num_layer("LVL.",    s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
+  update_string_num_layer("LINES\n", 0, s_lines_str, sizeof(s_lines_str), s_lines_layer);
+
 }
 
 static void prv_load_game() {
@@ -746,8 +711,10 @@ static void prv_load_game() {
   // s_game_state.level = (s_game_state.lines_cleared / 10) + 1;
   // if (s_game_state.level > 10) { s_game_state.level = 10; }
 
-  update_num_layer(s_game_state.score, s_score_str, s_score_layer);
-  update_num_layer(s_game_state.level,         s_level_str, s_level_layer);
+  update_string_num_layer("SCORE\n", s_game_state.score, s_score_str, sizeof(s_score_str), s_score_layer);
+  update_string_num_layer("LVL.",    s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
+  update_string_num_layer("LINES\n", s_game_state.lines_cleared, s_lines_str, sizeof(s_lines_str), s_lines_layer);
+
   s_tick_time = s_max_tick - (s_tick_interval * s_game_state.level);
 
   make_block(s_game_state.block,      s_game_state.block_type,      s_game_state.block_X,      s_game_state.block_Y);

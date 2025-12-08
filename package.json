@@ -1,5 +1,5 @@
 {
-  "name": "pebble-tetris",
+  "name": "pebbletris",
   "author": "MrBlue",
   "version": "2.0.0",
   "keywords": [
@@ -7,13 +7,14 @@
   ],
   "private": true,
   "pebble": {
-    "displayName": "Pebble Tetris",
+    "displayName": "Pebbletris",
     "uuid": "18ddd9fd-a6b0-4a92-820a-3287d92eb615",
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
       "basalt",
-      "chalk"
+      "chalk",
+      "emery"
     ],
     "watchapp": {
       "watchface": false
@@ -30,7 +31,12 @@
           "type": "png"
         },
         {
-          "file": "images/Menu.png",
+          "file": "images/Menu_Title.png",
+          "name": "MENU_TITLE",
+          "type": "png"
+        },
+        {
+          "file": "images/Menu_Options.png",
           "name": "MENU_OPTIONS",
           "type": "png"
         },
@@ -40,10 +46,22 @@
           "type": "raw"
         },
         {
-          "file": "fonts/aquarius.bold.ttf",
-          "name": "AQUARIUS_BOLD_20",
+          "file": "fonts/PublicPixel-tall.ttf",
+          "name": "PUBLICPIXEL_14",
           "type": "font",
-          "characterRegex": "[a-zA-Z]"
+          "characterRegex": "[ -~]",
+          "targetPlatforms": [
+            "basalt","chalk"
+          ]
+        },
+        {
+          "file": "fonts/PublicPixel-tall.ttf",
+          "name": "PUBLICPIXEL_19",
+          "type": "font",
+          "characterRegex": "[ -~]",
+          "targetPlatforms": [
+            "emery"
+          ]
         },
         {
           "file": "fonts/publicpixel.ttf",

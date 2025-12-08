@@ -11,7 +11,9 @@
 #define Z      5
 #define T      6
 
-#define BLOCK_SIZE 8 
+#define LEFT -1
+#define RIGHT 1
+
 #define GRID_BLOCK_WIDTH 10
 #define GRID_BLOCK_HEIGHT 20
 
@@ -23,12 +25,18 @@
 #define GAME_SCORES_KEY        737415560
 #define GAME_NAME_KEY          737415561
 
-#ifdef PBL_PLATFORM_CHALK
+#ifdef PBL_PLATFORM_EMERY
+  #define SCREEN_WIDTH 200
+  #define SCREEN_HEIGHT 228
+  #define BLOCK_SIZE 11
+#elif defined (PBL_PLATFORM_CHALK)
   #define SCREEN_WIDTH 180
   #define SCREEN_HEIGHT 180
+  #define BLOCK_SIZE 8 
 #else
   #define SCREEN_WIDTH 144
   #define SCREEN_HEIGHT 168
+  #define BLOCK_SIZE 8 
 #endif
 
 #define THEMES_COUNT 4
@@ -49,8 +57,6 @@ typedef struct {
   int8_t next_block_type;
   uint8_t block_X;
   uint8_t block_Y;
-  // uint8_t next_block_X;
-  // uint8_t next_block_Y;
   uint16_t lines_cleared;
   uint8_t level;
   uint32_t score;
@@ -88,13 +94,15 @@ typedef struct {
 extern GameSettings game_settings;
 extern Theme theme;
 
-extern GFont s_font_title;
+extern GFont s_font_mono_xsmall;
 extern GFont s_font_mono_small;
 extern GFont s_font_mono_big;
 
 char *itoa10 (int value, char *result);
 
 void update_num_layer (int num, char *str, TextLayer *layer);
+
+void update_string_num_layer (char* str_in, int num, char* str_out, size_t out_size, TextLayer *layer);
 
 void make_block (GPoint *create_block, int type, int bX, int bY);
 

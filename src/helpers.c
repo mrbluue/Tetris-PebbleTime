@@ -1,37 +1,8 @@
 #include "helpers.h"
 
-/* simple base 10 only itoa */
-// Credit: David C. Rankin, Stackoverflow
-// Because seriously, the Pebble SDK has no way to do this.
-char *itoa10 (int value, char *result)
-{
-    char const digit[] = "0123456789";
-    char *p = result;
-    if (value < 0) {
-        *p++ = '-';
-        value *= -1;
-    }
-
-    /* move number of required chars and null terminate */
-    int shift = value;
-    do {
-        ++p;
-        shift /= 10;
-    } while (shift);
-    *p = '\0';
-
-    /* populate result in reverse order */
-    do {
-        *--p = digit [value % 10];
-        value /= 10;
-    } while (value);
-
-    return result;
-}
-
-void update_num_layer (int num, char* str, TextLayer *layer) {
-  itoa10(num, str);
-  text_layer_set_text(layer, str);
+void update_string_num_layer (char* str_in, int num, char* str_out, size_t out_size, TextLayer *layer) {
+  snprintf(str_out, out_size, "%s%d", str_in, num);
+  text_layer_set_text(layer, str_out);
 }
 
 const GPoint SHAPES[7][4] = {
@@ -153,6 +124,7 @@ int next_block_offset (int block_type) {
 }
 
 void set_theme(int theme_id) {
+  // Load themes from the raw data (generated with the Python script from the json files in the themes folder)
   int i = theme_id % THEMES_COUNT;
   resource_load_byte_range(resource_get_handle(RESOURCE_ID_THEMES), i*THEMES_BYTES, (uint8_t*)&theme, THEMES_BYTES);
 }
