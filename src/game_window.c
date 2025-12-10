@@ -8,7 +8,7 @@ static Window *s_window;
 
 static GameState s_game_state;
 static GameStatus s_status;
-static uint8_t s_grid_blocks[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
+static bool s_grid_blocks[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
 static uint8_t s_grid_colors[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
 
 static bool s_pauseFromFocus = false;
@@ -519,6 +519,10 @@ static void prv_reset_lock_delay(){
 
 static void prv_lock_piece(){
   GPoint *block = s_game_state.block;
+  int8_t block_type = s_game_state.block_type;
+
+  // if the block type is -1 it means it's already been locked and we need to wait till next game cycle
+  if(block_type == -1) { return; }
 
   // check again that block can't drop
   if(prv_can_drop()) { return; }
@@ -526,7 +530,7 @@ static void prv_lock_piece(){
   // lock block for good
   for (int i=0; i<4; i++) {
     s_grid_blocks[block[i].x][block[i].y] = true;
-    s_grid_colors[block[i].x][block[i].y] = s_game_state.block_type;
+    s_grid_colors[block[i].x][block[i].y] = block_type;
   }
 
   layer_mark_dirty(s_bg_layer);

@@ -77,7 +77,7 @@ void make_block (GPoint *create_block, int type, int bX, int bY);
 
 void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rotation);
 
-int find_max_drop (GPoint *block, uint8_t grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]);
+int find_max_drop (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]);
 
 int next_block_offset (int block_type);
 
