@@ -25,9 +25,9 @@
 
   #define MENU_OPTIONS_X 4
   #define MENU_OPTIONS_Y (MENU_GRID_Y + MENU_GRID_BLOCK_SIZE + MENU_GRID_STROKE + 2)
-  #define MENU_OPTIONS_W 192
+  #define MENU_OPTIONS_W 193
   #define MENU_OPTIONS_H 133
-  #define MENU_OPTIONS_TOPCUT 26
+  #define MENU_OPTIONS_TOPCUT 32
 #elif defined(PBL_PLATFORM_CHALK)
   #define MENU_TITLE_X 33
   #define MENU_TITLE_Y 28
@@ -76,11 +76,11 @@
 GameSettings game_settings;
 Theme theme;
 
-GFont s_font_mono_xsmall;
+GFont s_font_mono_tall;
 GFont s_font_mono_small;
 GFont s_font_mono_big;
 
-static Window    *s_window;
+static Window *s_window;
 
 static Layer *s_title_pane_layer = NULL;
 
@@ -122,7 +122,7 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
       break;
     case 2:
       all_scores_window_push();
-      // new_score_window_push(1000); // for testing
+      // new_score_window_push(1000, 1); // for testing
       break;
     case 3:
       settings_window_push();
@@ -132,19 +132,25 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
-  if(menu_option > 1) 
-    menu_option -= 1;
-  else if(menu_option == 1 && can_load) 
-    menu_option = 0;
+  switch(menu_option){
+    case -1:
+    case 0:
+      menu_option = MENU_OPTIONS - 1;
+      break;
+    case 1:
+      menu_option = can_load ? 0 : MENU_OPTIONS - 1;
+      break;
+    default:
+      menu_option -= 1;
+    break;
+  }
 
   layer_mark_dirty(s_title_pane_layer);
 }
 
 static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
-  if(menu_option == -1 && can_load)
-    menu_option = 0;
-  else if(menu_option == -1 && !can_load)
-    menu_option = 1;
+  if((menu_option == -1) || (menu_option == MENU_OPTIONS - 1))
+    menu_option = can_load ? 0 : 1;
   else if(menu_option < MENU_OPTIONS - 1) 
     menu_option += 1;
 
@@ -249,12 +255,14 @@ static void window_unload(Window *window) {
 
 static void init(void) {
   #ifdef PBL_PLATFORM_EMERY
-  s_font_mono_xsmall = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_19));
+    s_font_mono_tall  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_19));
+    s_font_mono_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_11));
+    s_font_mono_big   = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_24));
   #else
-  s_font_mono_xsmall = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_14));
+    s_font_mono_tall  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_14)); // font for game ui with margin on top of characters
+    s_font_mono_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_8)); // font for high score page
+    s_font_mono_big   = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_16));  // font for high score name input
   #endif
-  s_font_mono_small = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_8)); // font for high score page
-  s_font_mono_big = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_16));  // font for high score name input
 
   if(!persist_exists(GAME_SETTINGS_KEY)){
     game_settings.set_drop_shadow = true;

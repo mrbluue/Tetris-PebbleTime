@@ -67,13 +67,37 @@
           "file": "fonts/publicpixel.ttf",
           "name": "PUBLICPIXEL_8",
           "type": "font",
-          "characterRegex": "[ -~]"
+          "characterRegex": "[ -~]",
+          "targetPlatforms": [
+            "basalt","chalk"
+          ]
+        },
+        {
+          "file": "fonts/publicpixel.ttf",
+          "name": "PUBLICPIXEL_11",
+          "type": "font",
+          "characterRegex": "[ -~]",
+          "targetPlatforms": [
+            "emery"
+          ]
         },
         {
           "file": "fonts/publicpixel.ttf",
           "name": "PUBLICPIXEL_16",
           "type": "font",
-          "characterRegex": "[A-Z]"
+          "characterRegex": "[A-Z]",
+          "targetPlatforms": [
+            "basalt","chalk"
+          ]
+        },
+        {
+          "file": "fonts/publicpixel.ttf",
+          "name": "PUBLICPIXEL_24",
+          "type": "font",
+          "characterRegex": "[A-Z]",
+          "targetPlatforms": [
+            "emery"
+          ]
         },
         {
           "file": "data/themes.bin",

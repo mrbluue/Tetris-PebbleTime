@@ -1,58 +1,15 @@
 #include <pebble.h>
 
 #include "helpers.h"
+#include "game_window.h"
 #include "score_window.h"
-
-#ifdef PBL_PLATFORM_EMERY
-  #define LABEL_HEIGHT 28
-#else
-  #define LABEL_HEIGHT 20 
-#endif
-
-#if defined(PBL_PLATFORM_CHALK)
-  #define GRID_PIXEL_WIDTH (BLOCK_SIZE * GRID_BLOCK_WIDTH)
-  #define GRID_PIXEL_HEIGHT (BLOCK_SIZE * GRID_BLOCK_HEIGHT)
-
-  #define GRID_ORIGIN_X ((SCREEN_WIDTH - GRID_PIXEL_WIDTH) / 2)
-  #define GRID_ORIGIN_Y ((SCREEN_HEIGHT - GRID_PIXEL_HEIGHT) / 2)
-
-  #define LABEL_SCORE_X 0
-  #define LABEL_SCORE_Y (GRID_ORIGIN_Y + BLOCK_SIZE * 7)
-  #define LABEL_LEVEL_X (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1)
-  #define LABEL_LEVEL_Y (LABEL_SCORE_Y)
-  #define LABEL_LINES_X (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + 1)
-  #define LABEL_LINES_Y (LABEL_LEVEL_Y + LABEL_HEIGHT)
-  #define LABEL_PAUSE_Y (LABEL_SCORE_Y + 1)
-  #define LABEL_PAUSE_H (BLOCK_SIZE * 3 - 1)
-
-  #define LABEL_WIDTH (SCREEN_WIDTH - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH))
-#else
-  #define GRID_PIXEL_WIDTH (BLOCK_SIZE * GRID_BLOCK_WIDTH)
-  #define GRID_PIXEL_HEIGHT (BLOCK_SIZE * GRID_BLOCK_HEIGHT)
-
-  #define GRID_PADDING ((SCREEN_HEIGHT - GRID_PIXEL_HEIGHT) / 2)
-  
-  #define GRID_ORIGIN_X (GRID_PADDING) // have same padding to the left as top
-  #define GRID_ORIGIN_Y (GRID_PADDING)
-  
-  #define LABEL_X (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + GRID_PADDING + 1)
-  #define LABEL_SCORE_X (LABEL_X)
-  #define LABEL_SCORE_Y (GRID_ORIGIN_Y + BLOCK_SIZE * 6)
-  #define LABEL_LEVEL_X (LABEL_X)
-  #define LABEL_LEVEL_Y (GRID_ORIGIN_Y + BLOCK_SIZE * 6 + LABEL_HEIGHT*2)
-  #define LABEL_LINES_X (LABEL_X)
-  #define LABEL_LINES_Y (GRID_ORIGIN_Y + BLOCK_SIZE * 6 + LABEL_HEIGHT*3)
-  #define LABEL_PAUSE_Y (LABEL_SCORE_Y + 1)
-  #define LABEL_PAUSE_H (BLOCK_SIZE * 3 - 1)
-  #define LABEL_WIDTH (SCREEN_WIDTH - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH) - (2 * GRID_PADDING))
-#endif
 
 static Window *s_window;
 
 static GameState s_game_state;
 static GameStatus s_status;
-static uint8_t s_grid_blocks[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT];
-static uint8_t s_grid_colors[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT];
+static uint8_t s_grid_blocks[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
+static uint8_t s_grid_colors[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
 
 static bool s_pauseFromFocus = false;
 
@@ -64,12 +21,18 @@ static int s_tick_time;
 static int s_tick_interval = 40;
 
 static AppTimer *s_longpress_timer = NULL;
-static int s_longpress_tick = 300;
+static int s_longpress_tick = 200;
 static int s_longpress_movement_direction;
 
 static AppTimer *s_lockdelay_timer = NULL;
 static int s_lockdelay_tick = 500;
 static int s_lockdelay_maxmoves = 15;
+
+static AppTimer *s_flash_timer = NULL;
+static int s_flash_tick = 100;
+static int s_flash_amount = 5;
+static GColor s_og_bg_color;
+static GColor s_flash_bg_color;
 
 static char s_score_str[18];
 static char s_level_str[10];
@@ -105,6 +68,7 @@ static void prv_check_if_lost();
 static void prv_game_tick(void *data);
 static void prv_s_longpress_tick(void *data);
 static void prv_lockdelay_tick(void *data);
+static void prv_flash_tick(void *data);
 
 static void prv_setup_game();
 static void prv_load_game();
@@ -137,6 +101,12 @@ void continue_game(){
 }
 
 static void prv_game_window_push() {
+  s_og_bg_color = theme.grid_bg_color;
+  if(s_og_bg_color.argb == GColorWhite.argb)
+    s_flash_bg_color = GColorBlack;
+  else 
+    s_flash_bg_color = GColorWhite;
+
 	s_window = window_create();
 	window_set_window_handlers(s_window, (WindowHandlers) {
 		.load = prv_window_load,
@@ -164,21 +134,21 @@ static void prv_window_load(Window *window) {
   layer_add_child(window_layer, s_game_pane_layer);
 
   s_score_layer = text_layer_create(GRect(LABEL_SCORE_X, LABEL_SCORE_Y, LABEL_WIDTH, BLOCK_SIZE * 4));
-  text_layer_set_font(s_score_layer, s_font_mono_xsmall);
+  text_layer_set_font(s_score_layer, s_font_mono_tall);
   text_layer_set_text_alignment(s_score_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_score_layer, theme.window_label_bg_color);
   text_layer_set_text_color(s_score_layer, theme.window_label_text_color);
   layer_add_child(window_layer, text_layer_get_layer(s_score_layer));
 
   s_level_layer = text_layer_create(GRect(LABEL_LEVEL_X, LABEL_LEVEL_Y, LABEL_WIDTH, LABEL_HEIGHT));
-  text_layer_set_font(s_level_layer, s_font_mono_xsmall);
+  text_layer_set_font(s_level_layer, s_font_mono_tall);
   text_layer_set_text_alignment(s_level_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_level_layer, theme.window_label_bg_color);
   text_layer_set_text_color(s_level_layer, theme.window_label_text_color);
   layer_add_child(window_layer, text_layer_get_layer(s_level_layer));
 
   s_lines_layer = text_layer_create(GRect(LABEL_LINES_X, LABEL_LINES_Y, LABEL_WIDTH, BLOCK_SIZE * 4));
-  text_layer_set_font(s_lines_layer, s_font_mono_xsmall);
+  text_layer_set_font(s_lines_layer, s_font_mono_tall);
   text_layer_set_text_alignment(s_lines_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_lines_layer, theme.window_label_bg_color);
   text_layer_set_text_color(s_lines_layer, theme.window_label_text_color);
@@ -186,7 +156,7 @@ static void prv_window_load(Window *window) {
 
   s_paused_label_layer = text_layer_create(GRect(GRID_ORIGIN_X+1, LABEL_PAUSE_Y, GRID_PIXEL_WIDTH-1, LABEL_PAUSE_H));
   text_layer_set_text(s_paused_label_layer, "PAUSED");
-  text_layer_set_font(s_paused_label_layer, s_font_mono_xsmall);
+  text_layer_set_font(s_paused_label_layer, s_font_mono_tall);
   text_layer_set_background_color(s_paused_label_layer, theme.window_label_bg_inactive_color);
   text_layer_set_text_color(s_paused_label_layer, theme.window_label_text_color);
   text_layer_set_text_alignment(s_paused_label_layer, GTextAlignmentCenter);
@@ -200,9 +170,13 @@ static void prv_window_unload(Window *window) {
   s_game_timer      = NULL;
   s_longpress_timer = NULL;
   s_lockdelay_timer = NULL;
+  s_flash_timer     = NULL;
+
+  theme.grid_bg_color = s_og_bg_color;
 
   text_layer_destroy(s_score_layer);
   text_layer_destroy(s_level_layer);
+  text_layer_destroy(s_lines_layer);
   text_layer_destroy(s_paused_label_layer);
   layer_destroy(s_bg_layer);
   layer_destroy(s_game_pane_layer);
@@ -278,11 +252,13 @@ static void prv_back_click_handler(ClickRecognizerRef recognizer, void *context)
 }
 
 static void prv_select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
-  int drop_amount = find_max_drop(s_game_state.block, s_grid_blocks);
-  for (int i=0; i<4; i++) {
-    s_game_state.block[i].y += drop_amount;
+  if(!s_lockdelay_timer) { // check that we're not already locking the piece, or else conflict occurs (no grid color bug)
+    int drop_amount = find_max_drop(s_game_state.block, s_grid_blocks);
+    for (int i=0; i<4; i++) {
+      s_game_state.block[i].y += drop_amount;
+    }
+    prv_lock_piece(); 
   }
-  prv_lock_piece(); // TODO: should I lock the piece here (as is), or let the player move it with lock delay?
 }
 
 static void prv_down_long_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -367,8 +343,8 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, game_bg, 0, GCornerNone);
 
   // Grid colors from leftover blocks.
-  for (int i=0; i<GRID_BLOCK_WIDTH; i++) {
-    for (int j=0; j<GRID_BLOCK_HEIGHT; j++) {
+  for (int i=0; i<GAME_GRID_BLOCK_WIDTH; i++) {
+    for (int j=0; j<GAME_GRID_BLOCK_HEIGHT; j++) {
       if (s_grid_colors[i][j] != 255) {
         graphics_context_set_fill_color(ctx, theme.block_color[s_grid_colors[i][j]]);
         GRect brick = GRect((i*BLOCK_SIZE) + GRID_ORIGIN_X, (j*BLOCK_SIZE) + GRID_ORIGIN_Y, BLOCK_SIZE, BLOCK_SIZE);
@@ -416,14 +392,14 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
 static void prv_game_cycle() {
   if (s_game_state.block_type == -1) {
     // Create a new block.
+    s_game_state.rotation = 0;
     s_game_state.block_type = s_game_state.next_block_type;
     s_game_state.next_block_type = rand() % 7;
-    s_game_state.rotation = 0;
-    s_game_state.block_X = 5;
-    s_game_state.block_Y = s_game_state.block_type == LINE ? 0 : 1;
-    make_block(s_game_state.block, s_game_state.block_type, s_game_state.block_X, s_game_state.block_Y);
+
+    GPoint new_block_pos = GPoint(5, s_game_state.block_type == LINE ? 0 : 1);
+
+    make_block(s_game_state.block, s_game_state.block_type, new_block_pos.x, new_block_pos.y);
     make_block(s_game_state.next_block, s_game_state.next_block_type, 0, 0);
-    // TODO? check if blocks are all free before even spawning them or lose
   }
   else {
     // Handle the current block.
@@ -503,13 +479,13 @@ static void prv_game_rotate_piece() {
       for (int i=0; i<4; i++) {
         rotated_block[i].x += (s_game_state.block_type == LINE) ? 2 : 1;
       }
-    } else if (rotated_block[i].x >= GRID_BLOCK_WIDTH) { 
+    } else if (rotated_block[i].x >= GAME_GRID_BLOCK_WIDTH) { 
       for (int i=0; i<4; i++) {
         rotated_block[i].x -= 1;
       }
     } 
 
-    if (rotated_block[i].y >= GRID_BLOCK_HEIGHT) { should_rotate = false; } 
+    if (rotated_block[i].y >= GAME_GRID_BLOCK_HEIGHT) { should_rotate = false; } 
     else if (rotated_block[i].y < 0) { // Ceiling kick
       for (int i=0; i<4; i++) {
         rotated_block[i].y += (s_game_state.block_type == LINE) ? 2 : 1; // kick down pieces too high on the grid to rotate (by 2 for the line)
@@ -582,7 +558,7 @@ static void prv_clear_rows(){
     if (s_game_state.level < 10 && s_game_state.lines_cleared >= (10 * s_game_state.level)) { // every 10 line clears, go up 1 level, up to level 10
       s_game_state.level += 1; 
       s_tick_time -= s_tick_interval;
-      update_string_num_layer("LVL.", s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
+      update_string_num_layer("LV.", s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
       prv_save_game(); // TODO: does this cause lag? needed as anything (such as a background app) that makes you quit the game can make you lose your progress
     }    
     // Drop the above rows.
@@ -612,10 +588,16 @@ static void prv_clear_rows(){
       break;
     case 4:
       s_game_state.score += (1200 * s_game_state.level);
-      // TODO: TETRIS flash and text(?)
+      vibes_short_pulse();
+      if(!s_flash_timer) {
+        s_flash_timer = app_timer_register(s_flash_tick, prv_flash_tick, NULL);
+      }
       break;
     default: break;
   }
+
+  if (s_game_state.score >= 999999)
+    s_game_state.score = 999999;
 
   update_string_num_layer("SCORE\n", s_game_state.score, s_score_str, sizeof(s_score_str), s_score_layer);
   update_string_num_layer("LINES\n", s_game_state.lines_cleared, s_lines_str, sizeof(s_lines_str), s_lines_layer);
@@ -667,14 +649,34 @@ static void prv_lockdelay_tick(void *data) {
   s_lockdelay_timer = NULL;
 }
 
+static void prv_flash_tick(void *data) {
+  if (s_status != GameStatusPlaying) { return; }
+
+  // TODO: No clue if there is a more efficient way of doing this
+
+  if (s_flash_amount == 0) {
+    s_flash_timer = NULL;
+    s_flash_amount = 5;
+    theme.grid_bg_color = s_og_bg_color;
+    layer_mark_dirty(s_bg_layer);
+    return;
+  }
+
+  theme.grid_bg_color = s_flash_amount % 2 ? s_og_bg_color : s_flash_bg_color;
+  s_flash_amount--;
+  layer_mark_dirty(s_bg_layer);
+  s_flash_timer = app_timer_register(s_flash_tick, prv_flash_tick, NULL);
+}
+
 // -------------------------- //
 // ***** DATA FUNCTIONS ***** //
 // -------------------------- //
 
 static void prv_setup_game() {
   s_status = GameStatusPlaying;
-  s_game_state.level = 1;
   s_game_state.lines_cleared = 0;
+  s_game_state.level = 1;
+  s_game_state.score = 0;
   s_game_state.rotation = 0;
   s_game_state.next_block_type = rand() % 7;
   s_game_state.block_type = -1;
@@ -689,7 +691,7 @@ static void prv_setup_game() {
   s_tick_time = s_max_tick;
   
   update_string_num_layer("SCORE\n", 0, s_score_str, sizeof(s_score_str), s_score_layer);
-  update_string_num_layer("LVL.",    s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
+  update_string_num_layer("LV.", s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
   update_string_num_layer("LINES\n", 0, s_lines_str, sizeof(s_lines_str), s_lines_layer);
 
 }
@@ -708,27 +710,11 @@ static void prv_load_game() {
     return;
   }
 
-  // s_game_state.level = (s_game_state.lines_cleared / 10) + 1;
-  // if (s_game_state.level > 10) { s_game_state.level = 10; }
-
   update_string_num_layer("SCORE\n", s_game_state.score, s_score_str, sizeof(s_score_str), s_score_layer);
-  update_string_num_layer("LVL.",    s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
+  update_string_num_layer("LV.",     s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
   update_string_num_layer("LINES\n", s_game_state.lines_cleared, s_lines_str, sizeof(s_lines_str), s_lines_layer);
 
   s_tick_time = s_max_tick - (s_tick_interval * s_game_state.level);
-
-  make_block(s_game_state.block,      s_game_state.block_type,      s_game_state.block_X,      s_game_state.block_Y);
-  make_block(s_game_state.next_block, s_game_state.next_block_type, 0, 0);
-
-  if (s_game_state.rotation != 0) {
-    for (int i=0; i<s_game_state.rotation; i++) {
-      GPoint rPoints[4];
-      rotate_block(rPoints, s_game_state.block, s_game_state.block_type, i);
-      for (int j=0; j<4; j++) {
-        s_game_state.block[j] = rPoints[j];
-      }
-    }
-  }
 }
 
 static void prv_quit_after_loss() {
@@ -737,21 +723,11 @@ static void prv_quit_after_loss() {
   s_game_timer = NULL;
 
   window_stack_pop(true);
-  new_score_window_push(s_game_state.score);
+  new_score_window_push(s_game_state.score, s_game_state.level);
 }
 
 static void prv_save_game() {
   if(s_status != GameStatusLost) {
-    // Normalize the block position for saving. We'll replay the rotation on load. -> TODO is this still needed
-    while (s_game_state.rotation != 0) {
-      GPoint new_points[4];
-      rotate_block(new_points, s_game_state.block, s_game_state.block_type, s_game_state.rotation);
-      for (int i=0; i<4; i++) {
-        s_game_state.block[i] = new_points[i];
-      }
-      s_game_state.rotation = (s_game_state.rotation+1)%4;
-    }
-
     persist_write_data(GAME_STATE_KEY, &s_game_state, sizeof(GameState));
     persist_write_data(GAME_GRID_BLOCK_KEY, &s_grid_blocks, sizeof(s_grid_blocks)); // the GRID arrays are too big to fit with the rest of the game state
     persist_write_data(GAME_GRID_COLOR_KEY, &s_grid_colors, sizeof(s_grid_colors)); // ...as the persist keys can only each hold 256 bytes 
@@ -764,5 +740,5 @@ static void prv_save_game() {
     persist_delete(GAME_GRID_BLOCK_KEY);
     persist_delete(GAME_GRID_COLOR_KEY);
     persist_write_bool(GAME_CONTINUE_KEY, false);
-}
+  }
 }

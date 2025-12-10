@@ -14,8 +14,8 @@
 #define LEFT -1
 #define RIGHT 1
 
-#define GRID_BLOCK_WIDTH 10
-#define GRID_BLOCK_HEIGHT 20
+#define GAME_GRID_BLOCK_WIDTH 10
+#define GAME_GRID_BLOCK_HEIGHT 20
 
 #define GAME_STATE_KEY         737415
 #define GAME_GRID_BLOCK_KEY    737415810
@@ -42,33 +42,6 @@
 #define THEMES_COUNT 4
 #define THEMES_BYTES 18
 
-enum GameStatus {
-	GameStatusPlaying,
-	GameStatusPaused,
-	GameStatusLost
-};
-typedef enum GameStatus GameStatus;
-
-typedef struct {
-  GPoint block[4];
-  GPoint next_block[4];
-  uint8_t rotation;
-  int8_t block_type;
-  int8_t next_block_type;
-  uint8_t block_X;
-  uint8_t block_Y;
-  uint16_t lines_cleared;
-  uint8_t level;
-  uint32_t score;
-} GameState;
-
-typedef struct {
-  char name[4];
-  uint32_t score;
-  // uint8_t level; // TODO
-  // char date[8];  // TODO
-} GameScore;
-
 typedef struct {
   bool set_drop_shadow;
   bool set_counterclockwise;
@@ -94,13 +67,9 @@ typedef struct {
 extern GameSettings game_settings;
 extern Theme theme;
 
-extern GFont s_font_mono_xsmall;
+extern GFont s_font_mono_tall;
 extern GFont s_font_mono_small;
 extern GFont s_font_mono_big;
-
-char *itoa10 (int value, char *result);
-
-void update_num_layer (int num, char *str, TextLayer *layer);
 
 void update_string_num_layer (char* str_in, int num, char* str_out, size_t out_size, TextLayer *layer);
 
@@ -108,9 +77,7 @@ void make_block (GPoint *create_block, int type, int bX, int bY);
 
 void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rotation);
 
-int find_max_drop (GPoint *block, uint8_t grid[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT]);
-
-int find_max_horiz_move (GPoint *block, uint8_t grid[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT], bool direction);
+int find_max_drop (GPoint *block, uint8_t grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]);
 
 int next_block_offset (int block_type);
 

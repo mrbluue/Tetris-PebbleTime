@@ -15,13 +15,17 @@ static GPath     *s_selector_path;
 
 static GameScore s_game_scores[MAX_SCORES_SHOWN];
 static char s_game_score_strings[MAX_SCORES_SHOWN][17];
+static char s_game_details_strings[MAX_SCORES_SHOWN][17];
 static char s_bad_score_string[17];
 static int  s_scores_exist_bool = false;
 
 static uint32_t s_new_score;
+static uint8_t s_new_score_level;
 static char s_new_score_name[4] = "AAA\0";
 static int  s_current_char = 0;
 static int  s_new_score_pos = MAX_SCORES_SHOWN;
+
+static bool s_showing_details = false;
 
 static void prv_score_window_push();
 static void prv_window_load(Window *window);
@@ -34,16 +38,21 @@ static void prv_load_scores();
 // static void prv_test_scores();
 static void prv_add_new_score();
 static char * prv_get_score_string(int i);
+static char * prv_get_details_string(int i);
+
+static void prv_show_scores();
+static void prv_show_details();
 
 // -------------------------- //
 // **** WINDOW FUNCTIONS **** //
 // -------------------------- //
 
-void new_score_window_push(uint32_t new_score) {
+void new_score_window_push(uint32_t new_score, uint8_t level) {
   prv_load_scores();
   // prv_test_scores();
   prv_score_window_push();
   s_new_score = new_score;
+  s_new_score_level = level;
   s_current_char = 0;
   s_new_score_pos = MAX_SCORES_SHOWN;
   if(s_new_score == 0){
@@ -80,15 +89,16 @@ static void prv_window_load(Window *window){
   int16_t bounds_width = bounds.size.w;
   int16_t bounds_height = bounds.size.h;
 
-  s_header_layer = text_layer_create((GRect) { .origin = { 0, 16 }, .size = { bounds_width, 20 } });
+  s_header_layer = text_layer_create(GRect(0, 16, bounds_width, 20));
   text_layer_set_text(s_header_layer, "High Scores");
+  text_layer_set_font(s_header_layer, s_font_mono_small);
   text_layer_set_text_alignment(s_header_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_header_layer, GColorClear);
   text_layer_set_text_color(s_header_layer, theme.window_header_color);
   layer_add_child(window_layer, text_layer_get_layer(s_header_layer));
   
   for (int i=0; i<MAX_SCORES_SHOWN; i++){
-    s_score_text_layer[i] = text_layer_create((GRect) { .origin = { 0, 42 + i * SCORE_LABEL_HEIGHT }, .size = { bounds_width, SCORE_LABEL_HEIGHT } });
+    s_score_text_layer[i] = text_layer_create(GRect(0, 42 + i * SCORE_LABEL_HEIGHT, bounds_width, SCORE_LABEL_HEIGHT));
     text_layer_set_font(s_score_text_layer[i], s_font_mono_small);
     text_layer_set_text_alignment(s_score_text_layer[i], GTextAlignmentCenter);
     text_layer_set_background_color(s_score_text_layer[i], GColorClear);
@@ -103,7 +113,7 @@ static void prv_window_load(Window *window){
     layer_add_child(window_layer, text_layer_get_layer(s_score_text_layer[i]));
   }
 
-  s_bad_score_text_layer = text_layer_create((GRect) { .origin = { 0, 42 + MAX_SCORES_SHOWN * SCORE_LABEL_HEIGHT + 4 }, .size = { bounds_width, SCORE_LABEL_HEIGHT } });
+  s_bad_score_text_layer = text_layer_create(GRect(0, 42 + MAX_SCORES_SHOWN * SCORE_LABEL_HEIGHT + 4, bounds_width, SCORE_LABEL_HEIGHT));
   text_layer_set_font(s_bad_score_text_layer, s_font_mono_small);
   text_layer_set_text_alignment(s_bad_score_text_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_bad_score_text_layer, GColorClear);
@@ -116,6 +126,7 @@ static void prv_window_load(Window *window){
 
 static void prv_window_unload(Window *window){
   layer_destroy(s_name_picker_layer);
+
   text_layer_destroy(s_header_layer);
   if(s_scores_exist_bool){
     for (int i=0; i<MAX_SCORES_SHOWN; i++){
@@ -123,6 +134,8 @@ static void prv_window_unload(Window *window){
     }
   }
   text_layer_destroy(s_bad_score_text_layer);
+  
+  gpath_destroy(s_selector_path);
 }
 
 // ------------------------ //
@@ -142,9 +155,9 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   graphics_draw_rect(ctx, dialog_box);
 
   // LETTERS INPUT
-  GRect let1_box = GRect(SCREEN_WIDTH/2 - 32 - 8, SCREEN_HEIGHT/2 - 8 + 5, 16, 16);
-  GRect let2_box = GRect(SCREEN_WIDTH/2 - 8,      SCREEN_HEIGHT/2 - 8 + 5, 16, 16);
-  GRect let3_box = GRect(SCREEN_WIDTH/2 + 32 - 8, SCREEN_HEIGHT/2 - 8 + 5, 16, 16);
+  GRect let1_box = GRect(SCREEN_WIDTH/2 - (INPUT_FONT_SIZE * 2.5), SCREEN_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
+  GRect let2_box = GRect(SCREEN_WIDTH/2 - (INPUT_FONT_SIZE * 0.5), SCREEN_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
+  GRect let3_box = GRect(SCREEN_WIDTH/2 + (INPUT_FONT_SIZE * 1.5), SCREEN_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
 
   char let1[2] = { s_new_score_name[0], '\0' };
   char let2[2] = { s_new_score_name[1], '\0' };
@@ -159,8 +172,8 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   
   // ^ UP arrow
   GPoint selector[3];
-  int x_off = SCREEN_WIDTH/2  - 32 - 2 + s_current_char * 32;
-  int y_off = SCREEN_HEIGHT/2 - 16 + 5;
+  int x_off = SCREEN_WIDTH / 2 - (INPUT_FONT_SIZE * 2) - 2 + s_current_char * (INPUT_FONT_SIZE * 2);
+  int y_off = SCREEN_HEIGHT / 2 - INPUT_FONT_SIZE + 5;
   selector[0] = GPoint(x_off - 6, y_off); 
   selector[1] = GPoint(x_off + 6, y_off);
   selector[2] = GPoint(x_off,     y_off - 12);
@@ -169,7 +182,7 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   gpath_draw_filled(ctx, s_selector_path);
   
   // V DOWN arrow
-  y_off = SCREEN_HEIGHT/2 + 16 + 5;
+  y_off = SCREEN_HEIGHT/2 + INPUT_FONT_SIZE + 5;
   selector[0] = GPoint(x_off - 6, y_off); 
   selector[1] = GPoint(x_off + 6, y_off);
   selector[2] = GPoint(x_off,     y_off + 12);
@@ -211,7 +224,13 @@ static void prv_select_click_handler(ClickRecognizerRef recognizer, void *contex
 
     layer_mark_dirty(s_name_picker_layer);
   } else {
-    // TODO: toggle show date and level for scores?
+    if(s_showing_details){
+      s_showing_details = false;
+      prv_show_scores();
+    } else {
+      s_showing_details = true;
+      prv_show_details();
+    }
   }
 }
 
@@ -280,6 +299,15 @@ static void prv_show_scores(){
   }
 }
 
+static void prv_show_details(){
+  for (int i=0; i<MAX_SCORES_SHOWN; i++){
+    if(s_game_scores[i].score){
+      text_layer_set_text(s_score_text_layer[i], prv_get_details_string(i));
+    } else 
+      text_layer_set_text(s_score_text_layer[i], "-");
+  }
+}
+
 static void prv_add_new_score(){
   if(!s_new_score) { return; }
 
@@ -306,8 +334,15 @@ static void prv_add_new_score(){
     s_game_scores[i] = s_game_scores[i - 1];
   }
 
-  s_game_scores[pos].score = s_new_score;
   snprintf(s_game_scores[pos].name, sizeof(s_game_scores[pos].name), s_new_score_name);
+
+  s_game_scores[pos].score = s_new_score;
+  s_game_scores[pos].level = s_new_score_level;
+  
+  time_t now = time(NULL);
+  struct tm *t = localtime(&now);
+  strftime(s_game_scores[pos].date, sizeof(s_game_scores[pos].date), "%y/%m/%d", t);
+
   s_new_score_pos = pos;
 
   persist_write_data(GAME_SCORES_KEY, &s_game_scores, sizeof(s_game_scores));
@@ -318,4 +353,9 @@ static char * prv_get_score_string(int i){
   snprintf(s_game_score_strings[i], sizeof(s_game_score_strings[i]), "%d.%s-%06"PRIu32"", i+1, s_game_scores[i].name, s_game_scores[i].score);
   // APP_LOG(APP_LOG_LEVEL_DEBUG, "score %d : %s", i, s_game_score_strings[i]);
   return s_game_score_strings[i];
+}
+
+static char * prv_get_details_string(int i){
+  snprintf(s_game_details_strings[i], sizeof(s_game_details_strings[i]), "%d.LV.%02d-%s", i+1, s_game_scores[i].level, s_game_scores[i].date);
+  return s_game_details_strings[i];
 }

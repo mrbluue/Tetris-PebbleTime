@@ -3,14 +3,6 @@
 #include "helpers.h"
 #include "settings_window.h"
 
-#define SETTINGS_COUNT 4
-#define SETTINGS_LABEL_HEIGHT 30
-
-#define SETTINGS_LABEL_PAD_L 14
-#define SETTINGS_LABEL_TOP_Y 48
-#define SETTINGS_INPUT_PAD_R 10
-#define SETTINGS_INPUT_TOP_Y 52
-
 static Window *s_window;
 
 static Layer     *s_select_layer;
@@ -22,7 +14,11 @@ static TextLayer *s_settings_input_layer[SETTINGS_COUNT];
 static GPath     *s_selector_path; // arrow for menu select
 
 static char *MENU_OPTION_LABELS[SETTINGS_COUNT] = {"Drop Shadows", "Rotation", "Backlight", "Theme"};
-static char *MENU_INPUT_LABELS[SETTINGS_COUNT][THEMES_COUNT] = {{"OFF", "ON"}, {"Clockwise", "Cnt. Clock."}, {"Default", "Alw. ON"}, {"< 1 >", "< 2 >", "< 3 >", "< 4 >"}};
+#ifdef PBL_PLATFORM_EMERY
+  static char *MENU_INPUT_LABELS[SETTINGS_COUNT][THEMES_COUNT] = {{"OFF", "ON"}, {"Clockwise", "Counter Clock."}, {"Default", "Always ON"}, {"< 1 >", "< 2 >", "< 3 >", "< 4 >"}};
+#else
+  static char *MENU_INPUT_LABELS[SETTINGS_COUNT][THEMES_COUNT] = {{"OFF", "ON"}, {"Clockwise", "Cnt. Clock."}, {"Default", "Alw. ON"}, {"< 1 >", "< 2 >", "< 3 >", "< 4 >"}};
+#endif
 static int   MENU_INPUT_VALUES[SETTINGS_COUNT] = {0, 0, 0, 0};
 #ifdef PBL_PLATFORM_CHALK
   static int MENU_OPTION_ROUND_OFFSET[SETTINGS_COUNT] = {8, 4, 12, 34};
@@ -72,8 +68,9 @@ static void prv_window_load(Window *window){
   layer_set_update_proc(s_select_layer, prv_draw_select);
   layer_add_child(window_layer, s_select_layer);
 
-  s_header_layer = text_layer_create(GRect(0, 10, bounds_width, 20));
+  s_header_layer = text_layer_create(GRect(0, 16, bounds_width, 20));
   text_layer_set_text(s_header_layer, "Settings");
+  text_layer_set_font(s_header_layer, s_font_mono_small);
   text_layer_set_text_alignment(s_header_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_header_layer, GColorClear);
   text_layer_set_text_color(s_header_layer, theme.window_header_color);
@@ -91,7 +88,11 @@ static void prv_window_load(Window *window){
         SETTINGS_LABEL_HEIGHT
       ));
     text_layer_set_text(s_settings_label_layer[i], MENU_OPTION_LABELS[i]);
-    text_layer_set_font(s_settings_label_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_18));
+    #ifdef PBL_PLATFORM_EMERY
+      text_layer_set_font(s_settings_label_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_24));
+    #else
+      text_layer_set_font(s_settings_label_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_18));
+    #endif
     text_layer_set_background_color(s_settings_label_layer[i], GColorClear);
     text_layer_set_text_color(s_settings_label_layer[i], theme.window_label_text_color);
     layer_add_child(window_layer, text_layer_get_layer(s_settings_label_layer[i]));
@@ -104,11 +105,15 @@ static void prv_window_load(Window *window){
           bounds_width - SETTINGS_INPUT_PAD_R, 
           bounds_width - (SETTINGS_INPUT_PAD_R + MENU_OPTION_ROUND_OFFSET[i])
         ), 
-        SETTINGS_LABEL_HEIGHT
+        SETTINGS_LABEL_HEIGHT 
       ));
     text_layer_set_text(s_settings_input_layer[i], MENU_INPUT_LABELS[i][0]);
     text_layer_set_text_alignment(s_settings_input_layer[i], GTextAlignmentRight);
-    text_layer_set_font(s_settings_input_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
+    #ifdef PBL_PLATFORM_EMERY
+      text_layer_set_font(s_settings_input_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+    #else
+      text_layer_set_font(s_settings_input_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
+    #endif
     text_layer_set_background_color(s_settings_input_layer[i], GColorClear);
     text_layer_set_text_color(s_settings_input_layer[i], theme.window_label_text_color);
     layer_add_child(window_layer, text_layer_get_layer(s_settings_input_layer[i]));
@@ -121,6 +126,7 @@ static void prv_window_load(Window *window){
 }
 
 static void prv_window_unload(Window *window){
+  s_timer = NULL;
   text_layer_destroy(s_header_layer);
   layer_destroy(s_select_layer);
   layer_destroy(s_theme_preview_layer);
@@ -144,7 +150,8 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
     graphics_context_set_fill_color(ctx, theme.window_label_bg_inactive_color);
   }
   for (int i=0; i<SETTINGS_COUNT; i++){
-    graphics_fill_rect(ctx, GRect(0, 50 + i * SETTINGS_LABEL_HEIGHT, SCREEN_WIDTH, 22), 0, GCornerNone);
+    // Draw label BGs separately from text layers
+    graphics_fill_rect(ctx, GRect(0, 50 + i * SETTINGS_LABEL_HEIGHT, SCREEN_WIDTH, SETTINGS_LABEL_HEIGHT - SETTINGS_LABEL_DISTANCE), 0, GCornerNone);
   }
 
   graphics_context_set_fill_color(ctx, theme.select_color);
@@ -156,6 +163,10 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
   x_off += MENU_OPTION_ROUND_OFFSET[current_setting] - 2;
   #endif
 
+  #ifdef PBL_PLATFORM_EMERY
+  y_off += 4;
+  #endif
+
   selector[0] = GPoint(x_off + 10, 57 + y_off);
   selector[1] = GPoint(x_off + 10, 65 + y_off);
   selector[2] = GPoint(x_off + 18, 61 + y_off);
@@ -165,11 +176,9 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
 }
 
 static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
-  graphics_context_set_stroke_color(ctx, GColorWhite);
   graphics_context_set_fill_color(ctx, theme.grid_bg_color);
-  GRect background = GRect(PBL_IF_ROUND_ELSE(24, 9), 45, SCREEN_WIDTH - PBL_IF_ROUND_ELSE(48, 18), 3 * SETTINGS_LABEL_HEIGHT);
+  GRect background = GRect(PREV_BOX_X, PREV_BOX_Y, SCREEN_WIDTH - (PREV_BOX_X * 2), PREV_BOX_H);
   graphics_fill_rect(ctx, background, 0, GCornerNone);
-  graphics_draw_rect(ctx, background);
 
   for(int i=0; i<7; i++){
     GPoint block[4];
@@ -179,20 +188,22 @@ static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
     make_block(block, i, block_x, block_y);
     graphics_context_set_fill_color(ctx, theme.block_color[i]);
     for(int i=0; i<4; i++){
-      graphics_fill_rect(ctx, GRect(PBL_IF_ROUND_ELSE(42, 24) + block[i].x * 8, 53 + block[i].y * 8, 8, 8), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(PREV_BOX_X + (2 * BLOCK_SIZE) + block[i].x * BLOCK_SIZE, PREV_BOX_Y + (1 + block[i].y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE), 0, GCornerNone);
     } 
   }
 
   graphics_context_set_stroke_color(ctx, theme.grid_lines_color);
   // Draw vertical lines
-  for (int i=PBL_IF_ROUND_ELSE(25, 8)+BLOCK_SIZE; i<=(SCREEN_WIDTH - PBL_IF_ROUND_ELSE(24, 9)); i+=BLOCK_SIZE) {
-    graphics_draw_line(ctx, GPoint(i, 46), GPoint(i, 43 + 3 * SETTINGS_LABEL_HEIGHT)); 
+  for (int i=PREV_BOX_X-1+BLOCK_SIZE; i<(SCREEN_WIDTH - PREV_BOX_X - 2); i+=BLOCK_SIZE) {
+    graphics_draw_line(ctx, GPoint(i, PREV_BOX_Y), GPoint(i, PREV_BOX_Y + PREV_BOX_H - 2)); // -2 at the end => not overlap box edge
   }
   // Draw horizontal lines
-  for (int i=45+BLOCK_SIZE; i<=45+(3 * SETTINGS_LABEL_HEIGHT); i+=BLOCK_SIZE) {
-    graphics_draw_line(ctx, GPoint(PBL_IF_ROUND_ELSE(25, 10), i), GPoint(SCREEN_WIDTH - PBL_IF_ROUND_ELSE(26, 11), i));
+  for (int i=PREV_BOX_Y+BLOCK_SIZE; i<(PREV_BOX_Y + PREV_BOX_H - 2); i+=BLOCK_SIZE) {
+    graphics_draw_line(ctx, GPoint(PREV_BOX_X, i), GPoint(SCREEN_WIDTH - PREV_BOX_X - 2, i));
   }
 
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_draw_rect(ctx, background);
 }
 
 // -------------------------- //

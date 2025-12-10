@@ -98,7 +98,7 @@ void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rot
 
 }
 
-int find_max_drop (GPoint *block, uint8_t grid[GRID_BLOCK_WIDTH][GRID_BLOCK_HEIGHT]) {
+int find_max_drop (GPoint *block, uint8_t grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]) {
   bool canDrop = true;
   int drop_amount = 0;
 
