@@ -396,7 +396,7 @@ static void prv_game_cycle() {
     s_game_state.block_type = s_game_state.next_block_type;
     s_game_state.next_block_type = rand() % 7;
 
-    GPoint new_block_pos = GPoint(5, s_game_state.block_type == LINE ? 0 : 1);
+    GPoint new_block_pos = s_game_state.block_type == LINE ? GPoint(4, 0) : GPoint(5, 1);
 
     make_block(s_game_state.block, s_game_state.block_type, new_block_pos.x, new_block_pos.y);
     make_block(s_game_state.next_block, s_game_state.next_block_type, 0, 0);
@@ -460,45 +460,24 @@ static void prv_game_move_piece(int movement){
 }
 
 static void prv_game_rotate_piece() {
-  // before rotation logic, is there a piece? (or if yes, is it a square)
-  if (s_game_state.block_type == -1 || s_game_state.block_type == 0) { return; }
+  // before rotation logic, is there a piece? (or if yes, is it not a square?)
+  if (s_game_state.block_type == -1 || s_game_state.block_type == SQUARE) { return; }
 
   int new_rotation = (s_game_state.rotation + 1) % 4;
   if(game_settings.set_counterclockwise){
     new_rotation = (s_game_state.rotation - 1 + 4) % 4;
   }
 
-  GPoint rotated_block[4];
-  rotate_block(rotated_block, s_game_state.block, s_game_state.block_type, new_rotation);
-
-  bool should_rotate = true;
-
-  for (int i=0; i<4; i++) {
-    // Wall kicks
-    if (rotated_block[i].x < 0) {
-      for (int i=0; i<4; i++) {
-        rotated_block[i].x += (s_game_state.block_type == LINE) ? 2 : 1;
-      }
-    } else if (rotated_block[i].x >= GAME_GRID_BLOCK_WIDTH) { 
-      for (int i=0; i<4; i++) {
-        rotated_block[i].x -= 1;
-      }
-    } 
-
-    if (rotated_block[i].y >= GAME_GRID_BLOCK_HEIGHT) { should_rotate = false; } 
-    else if (rotated_block[i].y < 0) { // Ceiling kick
-      for (int i=0; i<4; i++) {
-        rotated_block[i].y += (s_game_state.block_type == LINE) ? 2 : 1; // kick down pieces too high on the grid to rotate (by 2 for the line)
-      }
-    } 
-    // if there's already a block there = bad
-    if (s_grid_blocks[rotated_block[i].x][rotated_block[i].y]) { should_rotate = false; } 
-  }
+  GPoint rotated_piece[4];
+  rotate_mino(rotated_piece, s_game_state.block, s_game_state.block_type, new_rotation);
   
-  if (!should_rotate) { return; }
+  GPoint kicked_piece[4];
+  if(!rotate_try_kicks(kicked_piece, rotated_piece, s_game_state.block_type, s_game_state.rotation, new_rotation, s_grid_blocks)){
+    return;
+  }
 
   for (int i=0; i<4; i++) {
-    s_game_state.block[i] = rotated_block[i];
+    s_game_state.block[i] = kicked_piece[i];
   }
 
   s_game_state.rotation = new_rotation;

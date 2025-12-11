@@ -16,9 +16,9 @@ const GPoint SHAPES[7][4] = {
   },
   { 
     {  0, 0 },
-    { -2, 0 },  // LINE
-    { -1, 0 },  // |1|2|0*|3|
-    {  1, 0 }   
+    { -1, 0 },  // LINE
+    {  1, 0 },  // |1|0*|2|3|
+    {  2, 0 }   
   },
   {
     {  0,  0 }, // J
@@ -53,6 +53,69 @@ const GPoint SHAPES[7][4] = {
 
 };
 
+// offset data from SRS obtained thanks to https://harddrop.com/wiki/SRS#How_guideline_SRS_actually_works
+const GPoint JLSTZ_KICKS[4][5] = { // ROTATION / OFFSET
+  { // rot 0
+    { 0, 0},
+    { 0, 0},
+    { 0, 0},
+    { 0, 0},
+    { 0, 0}
+  },
+  { // rot R
+    { 0, 0},
+    { 1, 0},
+    { 1, 1},
+    { 0,-2},
+    { 1,-2}
+  },
+  { // rot 2
+    { 0, 0},
+    { 0, 0},
+    { 0, 0},
+    { 0, 0},
+    { 0, 0}
+  },
+  { // rot L
+    { 0, 0},
+    {-1, 0},
+    {-1, 1},
+    { 0,-2},
+    {-1,-2}
+  }
+};
+
+const GPoint I_KICKS[4][5] = {
+  { // rot 0
+    { 0, 0},
+    {-1, 0},
+    { 2, 0},
+    {-1, 0},
+    { 2, 0}
+  },
+  { // rot R
+    {-1, 0},
+    { 0, 0},
+    { 0, 0},
+    { 0,-1},
+    { 0, 2}
+  },
+  { // rot 2
+    {-1,-1},
+    { 1,-1},
+    {-2,-1},
+    { 1, 0},
+    {-2, 0}
+  },
+  { // rot L
+    { 0,-1},
+    { 0,-1},
+    { 0,-1},
+    { 0, 1},
+    { 0,-2}
+  }
+};
+
 void make_block (GPoint *create_block, int type, int bX, int bY) {
   for (int i = 0; i < 4; i++) {
     create_block[i] = GPoint(bX + SHAPES[type][i].x, bY + SHAPES[type][i].y);
@@ -75,27 +138,51 @@ GPoint rotate_point (int old_x, int old_y, int rotation) {
 
 }
 
-// Rotate the current block.
-void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rotation) {
-
-  if (block_type == SQUARE) {
-    for (int i = 0; i < 4; i++) {
-      new_block[i] = old_block[i];
-    }
-    return;
-  }
-
-  if (block_type == LINE) {
-    rotation %= 2; 
-  }
-
+// Rotate the current tetromino.
+void rotate_mino(GPoint *new_block, GPoint *old_block, int block_type, int rotation) {
   GPoint pivot_point = old_block[0]; // the 1 block out of 4 that never rotates
   new_block[0] = pivot_point;
+  
   for(int i=1; i<4; i++){
     GPoint new_coord = rotate_point(SHAPES[block_type][i].x, SHAPES[block_type][i].y, rotation);
     new_block[i] = GPoint(pivot_point.x+new_coord.x, pivot_point.y+new_coord.y);
   }
 
+}
+
+bool rotate_try_kicks(GPoint *new_block, GPoint *old_block, int block_type, int old_rotation, int new_rotation, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]){
+  const GPoint const (*kick_registry)[4][5] = (block_type == LINE) ? &I_KICKS : &JLSTZ_KICKS;
+
+  // look through each offset option
+  for(int i=0; i<5; i++){ 
+    // get temp mino from old_block
+    GPoint mino_try[4];
+    memcpy(mino_try, old_block, sizeof(mino_try));
+    // look through each block of the temp mino
+    for(int j=0; j<4; j++){ 
+      // apply kick offset to each block, see https://harddrop.com/wiki/SRS#How_guideline_SRS_actually_works
+      mino_try[j].x += (*kick_registry)[old_rotation][i].x - (*kick_registry)[new_rotation][i].x;
+      mino_try[j].y += (*kick_registry)[old_rotation][i].y - (*kick_registry)[new_rotation][i].y;
+
+      // is it in bounds?
+      if(mino_try[j].x <  0  || mino_try[j].y <  0) { break; }
+      if(mino_try[j].x >= 10 || mino_try[j].y >= 20) { break; }
+
+      // is it overlapping anything else
+      if(grid[mino_try[j].x][mino_try[j].y]) { break; }
+
+      // if we're still here after all this, then it's all right!
+      if(j == 3) { 
+        for (int k = 0; k < 4; k++) {
+          new_block[k] = mino_try[k];
+        }
+        return true;
+      }
+    }
+  }
+  // if nothing came out of this we still need to do something about new_block or else the compiler gets angry at me
+  new_block = NULL;
+  return false;
 }
 
 int find_max_drop (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]) {

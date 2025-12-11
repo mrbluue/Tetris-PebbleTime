@@ -75,7 +75,9 @@ void update_string_num_layer (char* str_in, int num, char* str_out, size_t out_s
 
 void make_block (GPoint *create_block, int type, int bX, int bY);
 
-void rotate_block (GPoint *new_block, GPoint *old_block, int block_type, int rotation);
+void rotate_mino(GPoint *new_block, GPoint *old_block, int block_type, int rotation);
+
+bool rotate_try_kicks(GPoint *new_block, GPoint *old_block, int block_type, int old_rotation, int new_rotation, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]);
 
 int find_max_drop (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]);
 
