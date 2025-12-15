@@ -263,6 +263,7 @@ static void prv_select_long_click_handler(ClickRecognizerRef recognizer, void *c
 
 static void prv_down_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   if (s_status != GameStatusPlaying) { return; }
+  prv_game_move_piece(RIGHT);
   s_longpress_movement_direction = RIGHT;
   s_longpress_timer = app_timer_register(s_longpress_tick, prv_s_longpress_tick, NULL);
 }
@@ -274,6 +275,7 @@ static void prv_down_long_release_handler(ClickRecognizerRef recognizer, void *c
 
 static void prv_up_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   if (s_status != GameStatusPlaying) { return; }
+  prv_game_move_piece(LEFT);
   s_longpress_movement_direction = LEFT;
   s_longpress_timer = app_timer_register(s_longpress_tick, prv_s_longpress_tick, NULL);
 }

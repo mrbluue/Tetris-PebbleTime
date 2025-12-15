@@ -183,7 +183,8 @@ static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
   for(int i=0; i<7; i++){
     GPoint block[4];
     int block_x = 2 * i - ((i+1) % 2);
-    if(i==0){block_x = 0;}
+    if(i==SQUARE){block_x = 0;}
+    if(i==LINE){block_x -= 1;}
     int block_y = 3 + 4 * (i % 2);
     make_block(block, i, block_x, block_y);
     graphics_context_set_fill_color(ctx, theme.block_color[i]);

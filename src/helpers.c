@@ -206,7 +206,8 @@ int find_max_drop (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLO
 
 // Just to make the 'next block' display nice and centered for blocks which have even width
 int next_block_offset (int block_type) {
-  if (block_type == SQUARE || block_type == LINE) { return BLOCK_SIZE/2; }
+  if (block_type == SQUARE) { return BLOCK_SIZE/2; }
+  if (block_type == LINE) { return -BLOCK_SIZE/2; }
   else { return 0; }
 }
 
