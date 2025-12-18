@@ -11,7 +11,8 @@ static GameStatus s_status;
 static bool s_grid_blocks[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
 static uint8_t s_grid_colors[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
 
-static bool s_pauseFromFocus = false;
+static bool s_pause_from_focus = false;
+static bool s_pause_lock_delay = false;
 
 static int s_lines_cleared_at_once = 0;
 
@@ -209,18 +210,18 @@ static void prv_window_unload(Window *window) {
 
 static void prv_app_focus_handler(bool focus) {
   if (!focus) {
-    s_pauseFromFocus = true;
+    s_pause_from_focus = true;
     s_status = GameStatusPaused;
     Layer *window_layer = window_get_root_layer(s_window);
     layer_add_child(window_layer, text_layer_get_layer(s_paused_label_layer));
   }
   else {
-    if (s_pauseFromFocus) {
+    if (s_pause_from_focus) {
       s_status = GameStatusPlaying;
       s_game_timer = app_timer_register(s_tick_time, prv_game_tick, NULL);
       layer_remove_from_parent(text_layer_get_layer(s_paused_label_layer));
     }
-    s_pauseFromFocus = false;
+    s_pause_from_focus = false;
   }
 }
 
@@ -239,6 +240,10 @@ static void prv_select_click_handler(ClickRecognizerRef recognizer, void *contex
   if (s_status == GameStatusPaused) {
     s_status = GameStatusPlaying;
     s_game_timer = app_timer_register(s_tick_time, prv_game_tick, NULL);
+    if(s_pause_lock_delay){
+      s_lockdelay_timer = app_timer_register(s_lockdelay_tick, prv_lockdelay_tick, NULL);
+      s_pause_lock_delay = false;
+    }
     layer_remove_from_parent(text_layer_get_layer(s_paused_label_layer));
     return;
   }
@@ -270,8 +275,12 @@ static void prv_back_click_handler(ClickRecognizerRef recognizer, void *context)
       break;
     default:
       s_status = GameStatusPaused;
-      Layer *window_layer = window_get_root_layer(s_window);
-      layer_add_child(window_layer, text_layer_get_layer(s_paused_label_layer));
+      if(s_lockdelay_timer){
+        s_pause_lock_delay = true;
+        app_timer_cancel(s_lockdelay_timer);
+        s_lockdelay_timer = NULL;
+      }
+      layer_add_child(window_get_root_layer(s_window), text_layer_get_layer(s_paused_label_layer));
     break;
   }
 }
@@ -329,8 +338,6 @@ static void prv_click_config_provider(void *context) {
 static void prv_draw_game(Layer *layer, GContext *ctx) {
 
   if (s_status != GameStatusPlaying || s_game_state.block_type == -1) { return; }
-
-  // TODO: Deal with block when lock delay is active but game has been paused
 
   GPoint *block = s_game_state.block;
 
@@ -616,8 +623,11 @@ static void prv_clear_rows(){
     if (s_game_state.level < 10 && s_game_state.lines_cleared >= (10 * s_game_state.level)) { // every 10 line clears, go up 1 level, up to level 10
       s_game_state.level += 1; 
       s_tick_time -= s_tick_interval;
+
       update_string_num_layer("LV.", s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
-      prv_save_game(); // TODO: does this cause lag? needed as anything (such as a background app) that makes you quit the game can make you lose your progress
+      
+      // Save game when level up, to not lose too much progress if app is interrupted
+      prv_save_game(); 
     }    
     // Drop the above rows.
     for (int k=j; k>0; k--) {
@@ -668,12 +678,12 @@ static void prv_check_if_lost(){
   // Check whether you've lost by seeing if any block is on the top row (y=0).
   for (int i=0; i<4; i++) {
     if (block[i].y == 0) {
-      s_status = GameStatusLost;
-      Layer *window_layer = window_get_root_layer(s_window);
-      // TODO: DELETE SAVE HERE INSTEAD?
+      s_status = GameStatusLost;      
+      s_game_timer = NULL;
+      prv_save_game();
+
       text_layer_set_text(s_paused_label_layer, "You lost!");
-      layer_add_child(window_layer, text_layer_get_layer(s_paused_label_layer));
-      
+      layer_add_child(window_get_root_layer(s_window), text_layer_get_layer(s_paused_label_layer));
       return;
     }
   }
@@ -702,7 +712,6 @@ static void prv_s_longpress_tick(void *data) {
 
 static void prv_lockdelay_tick(void *data) {
   if (s_status != GameStatusPlaying) { return; }
-  // TODO: Deal with block when lock delay is active but game has been paused
 
   prv_lock_piece();
   s_lockdelay_timer = NULL;
@@ -710,8 +719,6 @@ static void prv_lockdelay_tick(void *data) {
 
 static void prv_flash_tick(void *data) {
   if (s_status != GameStatusPlaying) { return; }
-
-  // TODO: No clue if there is a more efficient way of doing this
 
   if (s_flash_amount == 0) {
     s_flash_timer = NULL;
@@ -764,8 +771,8 @@ static void prv_load_game() {
     persist_read_data(GAME_GRID_BLOCK_KEY, &s_grid_blocks, sizeof(s_grid_blocks));
     persist_read_data(GAME_GRID_COLOR_KEY, &s_grid_colors, sizeof(s_grid_colors));
   } else {
-    APP_LOG(APP_LOG_LEVEL_INFO, "No saved data");
-    // TODO : Throw error, couldnt find data
+    // Error: couldnt find data
+    APP_LOG(APP_LOG_LEVEL_ERROR, "No saved data");
     return;
   }
 
@@ -777,9 +784,10 @@ static void prv_load_game() {
 }
 
 static void prv_quit_after_loss() {
-  prv_save_game();
-
-  s_game_timer = NULL;
+  // Make sure the game save data has been deleted
+  if(persist_exists(GAME_STATE_KEY)){
+    prv_save_game();
+  }
 
   window_stack_pop(true);
   new_score_window_push(s_game_state.score, s_game_state.level);

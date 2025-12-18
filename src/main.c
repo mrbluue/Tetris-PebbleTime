@@ -273,6 +273,11 @@ static void window_unload(Window *window) {
   for (int i=0; i<MENU_OPTIONS; i++){
     text_layer_destroy(s_menu_option_text_layer[i]);
   }
+
+  #ifdef PBL_BW
+    bitmap_layer_destroy(s_menu_option_bg_bitmap_layer);
+    gbitmap_destroy(s_menu_option_bg_bitmap);
+  #endif
 }
 
 static void init(void) {
