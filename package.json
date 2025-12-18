@@ -12,9 +12,12 @@
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
+      "aplite",
       "basalt",
       "chalk",
-      "emery"
+      "diorite",
+      "emery",
+      "flint"
     ],
     "watchapp": {
       "watchface": false
@@ -24,6 +27,11 @@
     ],
     "resources": {
       "media": [
+        {
+          "file": "data/LICENSE",
+          "name": "LICENSE",
+          "type": "raw"
+        },
         {
           "file": "images/Logo.png",
           "menuIcon": true,
@@ -36,27 +44,17 @@
           "type": "png"
         },
         {
-          "file": "images/Menu_Options.png",
-          "name": "MENU_OPTIONS",
-          "type": "png"
-        },
-        {
-          "file": "data/LICENSE",
-          "name": "LICENSE",
-          "type": "raw"
-        },
-        {
-          "file": "fonts/PublicPixel-tall.ttf",
-          "name": "PUBLICPIXEL_14",
+          "file": "fonts/MENU.bdf",
+          "name": "MENU_12",
           "type": "font",
           "characterRegex": "[ -~]",
           "targetPlatforms": [
-            "basalt","chalk"
+            "aplite","basalt","chalk","diorite","flint"
           ]
         },
         {
-          "file": "fonts/PublicPixel-tall.ttf",
-          "name": "PUBLICPIXEL_19",
+          "file": "fonts/MENU-emery.bdf",
+          "name": "MENU_17",
           "type": "font",
           "characterRegex": "[ -~]",
           "targetPlatforms": [
@@ -64,16 +62,50 @@
           ]
         },
         {
-          "file": "fonts/publicpixel.ttf",
+          "file": "images/menu-option-bg-bw.png",
+          "name": "MENU_OPTION_BG_BW",
+          "type": "png",
+          "targetPlatforms": [
+            "aplite","diorite","flint"
+          ]
+        },
+        {
+          "file": "images/sprites-bw.png",
+          "name": "SPRITES_BW",
+          "type": "png",
+          "targetPlatforms": [
+            "aplite","diorite","flint"
+          ]
+        },
+        {
+          "file": "fonts/PublicPixel-8-H8.bdf",
           "name": "PUBLICPIXEL_8",
           "type": "font",
           "characterRegex": "[ -~]",
           "targetPlatforms": [
-            "basalt","chalk"
+            "aplite","basalt","chalk","diorite","flint"
           ]
         },
         {
-          "file": "fonts/publicpixel.ttf",
+          "file": "fonts/PublicPixel-8-H14.bdf",
+          "name": "PUBLICPIXELS_14",
+          "type": "font",
+          "characterRegex": "[ -~]",
+          "targetPlatforms": [
+            "aplite","basalt","chalk","diorite","flint"
+          ]
+        },
+        {
+          "file": "fonts/PublicPixel-16-H16.bdf",
+          "name": "PUBLICPIXEL_16",
+          "type": "font",
+          "characterRegex": "[A-Z]",
+          "targetPlatforms": [
+            "aplite","basalt","chalk","diorite","flint"
+          ]
+        },
+        {
+          "file": "fonts/PublicPixel-11-H11.bdf",
           "name": "PUBLICPIXEL_11",
           "type": "font",
           "characterRegex": "[ -~]",
@@ -82,16 +114,16 @@
           ]
         },
         {
-          "file": "fonts/publicpixel.ttf",
-          "name": "PUBLICPIXEL_16",
+          "file": "fonts/PublicPixel-11-H19.bdf",
+          "name": "PUBLICPIXEL_19",
           "type": "font",
-          "characterRegex": "[A-Z]",
+          "characterRegex": "[ -~]",
           "targetPlatforms": [
-            "basalt","chalk"
+            "emery"
           ]
         },
         {
-          "file": "fonts/publicpixel.ttf",
+          "file": "fonts/PublicPixel-24-H24.bdf",
           "name": "PUBLICPIXEL_24",
           "type": "font",
           "characterRegex": "[A-Z]",
@@ -102,7 +134,10 @@
         {
           "file": "data/themes.bin",
           "name": "THEMES",
-          "type": "raw"
+          "type": "raw",
+          "targetPlatforms": [
+            "basalt", "chalk", "emery"
+          ]
         }
       ]
     }

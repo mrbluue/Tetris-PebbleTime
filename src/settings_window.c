@@ -13,6 +13,11 @@ static TextLayer *s_settings_input_layer[SETTINGS_COUNT];
 
 static GPath     *s_selector_path; // arrow for menu select
 
+#ifdef PBL_BW
+  static GBitmap *s_bw_spritesheet;
+  static GBitmap *s_bw_block_sprites[7];
+#endif
+
 static char *MENU_OPTION_LABELS[SETTINGS_COUNT] = {"Drop Shadows", "Rotation", "Backlight", "Theme"};
 #ifdef PBL_PLATFORM_EMERY
   static char *MENU_INPUT_LABELS[SETTINGS_COUNT][THEMES_COUNT] = {{"OFF", "ON"}, {"Clockwise", "Counter Clock."}, {"Default", "Always ON"}, {"< 1 >", "< 2 >", "< 3 >", "< 4 >"}};
@@ -69,8 +74,8 @@ static void prv_window_load(Window *window){
   layer_add_child(window_layer, s_select_layer);
 
   s_header_layer = text_layer_create(GRect(0, 16, bounds_width, 20));
-  text_layer_set_text(s_header_layer, "Settings");
-  text_layer_set_font(s_header_layer, s_font_mono_small);
+  text_layer_set_text(s_header_layer, "SETTINGS");
+  text_layer_set_font(s_header_layer, s_font_menu);
   text_layer_set_text_alignment(s_header_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_header_layer, GColorClear);
   text_layer_set_text_color(s_header_layer, theme.window_header_color);
@@ -123,6 +128,13 @@ static void prv_window_load(Window *window){
   layer_set_update_proc(s_theme_preview_layer, prv_draw_theme_preview);
   layer_add_child(window_layer, s_theme_preview_layer);
   layer_set_hidden(s_theme_preview_layer, true);
+
+  #ifdef PBL_BW
+    s_bw_spritesheet = gbitmap_create_with_resource(RESOURCE_ID_SPRITES_BW);
+    for(int i=0; i<7; i++){
+      s_bw_block_sprites[i] = gbitmap_create_as_sub_bitmap(s_bw_spritesheet, GRect(i*7, (game_settings.set_theme*7) % 21, 7, 7));
+    }
+  #endif
 }
 
 static void prv_window_unload(Window *window){
@@ -135,6 +147,13 @@ static void prv_window_unload(Window *window){
     text_layer_destroy(s_settings_input_layer[i]);
   }
   gpath_destroy(s_selector_path);
+
+  #ifdef PBL_BW
+    for(int i=0; i<7; i++){
+      gbitmap_destroy(s_bw_block_sprites[i]);
+    }
+    gbitmap_destroy(s_bw_spritesheet);
+  #endif
 }
 
 // ------------------------ //
@@ -154,7 +173,7 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
     graphics_fill_rect(ctx, GRect(0, 50 + i * SETTINGS_LABEL_HEIGHT, SCREEN_WIDTH, SETTINGS_LABEL_HEIGHT - SETTINGS_LABEL_DISTANCE), 0, GCornerNone);
   }
 
-  graphics_context_set_fill_color(ctx, theme.select_color);
+  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(theme.select_color, GColorBlack));
   GPoint selector[3];
   int x_off = -6;
   int y_off = current_setting * SETTINGS_LABEL_HEIGHT;
@@ -182,28 +201,42 @@ static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
 
   for(int i=0; i<7; i++){
     GPoint block[4];
+    
     int block_x = 2 * i - ((i+1) % 2);
     if(i==SQUARE){block_x = 0;}
     if(i==LINE){block_x -= 1;}
     int block_y = 3 + 4 * (i % 2);
+
     make_block(block, i, block_x, block_y);
-    graphics_context_set_fill_color(ctx, theme.block_color[i]);
-    for(int i=0; i<4; i++){
-      graphics_fill_rect(ctx, GRect(PREV_BOX_X + (2 * BLOCK_SIZE) + block[i].x * BLOCK_SIZE, PREV_BOX_Y + (1 + block[i].y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE), 0, GCornerNone);
-    } 
+
+    for(int j=0; j<4; j++){
+      GRect rect = GRect(PREV_BOX_X + (2 * BLOCK_SIZE) + block[j].x * BLOCK_SIZE, PREV_BOX_Y + (1 + block[j].y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+      #ifdef PBL_COLOR
+        graphics_context_set_fill_color(ctx, theme.block_color[i]);
+        graphics_fill_rect(ctx, rect, 0, GCornerNone);
+      #else
+        gbitmap_destroy(s_bw_block_sprites[i]);
+        s_bw_block_sprites[i] = gbitmap_create_as_sub_bitmap(s_bw_spritesheet, GRect(i*7, (MENU_INPUT_VALUES[3]*7) % (THEMES_COUNT*7), 7, 7));
+        graphics_context_set_stroke_color(ctx, GColorBlack);
+        graphics_draw_rect(ctx, GRect(rect.origin.x, rect.origin.y, rect.size.w + 1, rect.size.h + 1));
+        graphics_draw_bitmap_in_rect(ctx, s_bw_block_sprites[i], GRect(rect.origin.x + 1, rect.origin.y + 1, rect.size.w - 1, rect.size.h - 1));
+      #endif
+    }
   }
 
-  graphics_context_set_stroke_color(ctx, theme.grid_lines_color);
-  // Draw vertical lines
-  for (int i=PREV_BOX_X-1+BLOCK_SIZE; i<(SCREEN_WIDTH - PREV_BOX_X - 2); i+=BLOCK_SIZE) {
-    graphics_draw_line(ctx, GPoint(i, PREV_BOX_Y), GPoint(i, PREV_BOX_Y + PREV_BOX_H - 2)); // -2 at the end => not overlap box edge
-  }
-  // Draw horizontal lines
-  for (int i=PREV_BOX_Y+BLOCK_SIZE; i<(PREV_BOX_Y + PREV_BOX_H - 2); i+=BLOCK_SIZE) {
-    graphics_draw_line(ctx, GPoint(PREV_BOX_X, i), GPoint(SCREEN_WIDTH - PREV_BOX_X - 2, i));
-  }
+  #ifdef PBL_COLOR
+    graphics_context_set_stroke_color(ctx, theme.grid_lines_color);
+    // Draw vertical lines
+    for (int i=PREV_BOX_X-1+BLOCK_SIZE; i<(SCREEN_WIDTH - PREV_BOX_X - 2); i+=BLOCK_SIZE) {
+      graphics_draw_line(ctx, GPoint(i, PREV_BOX_Y), GPoint(i, PREV_BOX_Y + PREV_BOX_H - 2)); // -2 at the end => not overlap box edge
+    }
+    // Draw horizontal lines
+    for (int i=PREV_BOX_Y+BLOCK_SIZE; i<(PREV_BOX_Y + PREV_BOX_H - 2); i+=BLOCK_SIZE) {
+      graphics_draw_line(ctx, GPoint(PREV_BOX_X, i), GPoint(SCREEN_WIDTH - PREV_BOX_X - 2, i));
+    }
+  #endif
 
-  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
   graphics_draw_rect(ctx, background);
 }
 

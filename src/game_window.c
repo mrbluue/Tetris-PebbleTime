@@ -45,6 +45,12 @@ static TextLayer *s_level_layer;
 static TextLayer *s_lines_layer;
 static TextLayer *s_paused_label_layer;
 
+#ifdef PBL_BW
+static GBitmap *s_bw_spritesheet;
+static GBitmap *s_bw_block_sprites[7];
+static GBitmap *s_bw_shadow_sprite;
+#endif
+
 static void prv_game_window_push();
 
 static void prv_window_load(Window *window);
@@ -55,6 +61,9 @@ static void prv_click_config_provider(void *context);
 
 static void prv_draw_game(Layer *layer, GContext *ctx);
 static void prv_draw_bg(Layer *layer, GContext *ctx);
+#ifdef PBL_BW
+  static void prv_draw_bw_block(GContext *ctx, GRect rect, uint8_t block_type);
+#endif 
 
 static void prv_game_cycle();
 static bool prv_can_drop();
@@ -134,32 +143,41 @@ static void prv_window_load(Window *window) {
   layer_add_child(window_layer, s_game_pane_layer);
 
   s_score_layer = text_layer_create(GRect(LABEL_SCORE_X, LABEL_SCORE_Y, LABEL_WIDTH, BLOCK_SIZE * 4));
-  text_layer_set_font(s_score_layer, s_font_mono_tall);
+  text_layer_set_font(s_score_layer, s_font_mono_line);
   text_layer_set_text_alignment(s_score_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_score_layer, theme.window_label_bg_color);
   text_layer_set_text_color(s_score_layer, theme.window_label_text_color);
   layer_add_child(window_layer, text_layer_get_layer(s_score_layer));
 
   s_level_layer = text_layer_create(GRect(LABEL_LEVEL_X, LABEL_LEVEL_Y, LABEL_WIDTH, LABEL_HEIGHT));
-  text_layer_set_font(s_level_layer, s_font_mono_tall);
+  text_layer_set_font(s_level_layer, s_font_mono_line);
   text_layer_set_text_alignment(s_level_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_level_layer, theme.window_label_bg_color);
   text_layer_set_text_color(s_level_layer, theme.window_label_text_color);
   layer_add_child(window_layer, text_layer_get_layer(s_level_layer));
 
   s_lines_layer = text_layer_create(GRect(LABEL_LINES_X, LABEL_LINES_Y, LABEL_WIDTH, BLOCK_SIZE * 4));
-  text_layer_set_font(s_lines_layer, s_font_mono_tall);
+  text_layer_set_font(s_lines_layer, s_font_mono_line);
   text_layer_set_text_alignment(s_lines_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_lines_layer, theme.window_label_bg_color);
   text_layer_set_text_color(s_lines_layer, theme.window_label_text_color);
   layer_add_child(window_layer, text_layer_get_layer(s_lines_layer));
 
-  s_paused_label_layer = text_layer_create(GRect(GRID_ORIGIN_X+1, LABEL_PAUSE_Y, GRID_PIXEL_WIDTH-1, LABEL_PAUSE_H));
+  s_paused_label_layer = text_layer_create(GRect(GRID_ORIGIN_X + PBL_IF_COLOR_ELSE(1, 0), LABEL_PAUSE_Y, GRID_PIXEL_WIDTH + PBL_IF_COLOR_ELSE(-1, 0), LABEL_PAUSE_H));
   text_layer_set_text(s_paused_label_layer, "PAUSED");
-  text_layer_set_font(s_paused_label_layer, s_font_mono_tall);
+  text_layer_set_font(s_paused_label_layer, s_font_mono_line);
   text_layer_set_background_color(s_paused_label_layer, theme.window_label_bg_inactive_color);
   text_layer_set_text_color(s_paused_label_layer, theme.window_label_text_color);
   text_layer_set_text_alignment(s_paused_label_layer, GTextAlignmentCenter);
+
+  #ifdef PBL_BW
+    s_bw_spritesheet = gbitmap_create_with_resource(RESOURCE_ID_SPRITES_BW);
+    for(int i=0; i<7; i++){
+      s_bw_block_sprites[i] = gbitmap_create_as_sub_bitmap(s_bw_spritesheet, GRect(i*7, (game_settings.set_theme*7) % 28, 7, 7));
+    }
+    s_bw_shadow_sprite = gbitmap_create_as_sub_bitmap(s_bw_spritesheet, GRect(7*7, 0, 7, 7));
+    gbitmap_destroy(s_bw_spritesheet);
+  #endif
 
   app_focus_service_subscribe(prv_app_focus_handler);
 }
@@ -180,6 +198,13 @@ static void prv_window_unload(Window *window) {
   text_layer_destroy(s_paused_label_layer);
   layer_destroy(s_bg_layer);
   layer_destroy(s_game_pane_layer);
+
+  #ifdef PBL_BW
+    for(int i=0; i<7; i++){
+      gbitmap_destroy(s_bw_block_sprites[i]);
+    }
+    gbitmap_destroy(s_bw_shadow_sprite);
+  #endif
 }
 
 static void prv_app_focus_handler(bool focus) {
@@ -305,24 +330,42 @@ static void prv_draw_game(Layer *layer, GContext *ctx) {
 
   if (s_status != GameStatusPlaying || s_game_state.block_type == -1) { return; }
 
+  // TODO: Deal with block when lock delay is active but game has been paused
+
   GPoint *block = s_game_state.block;
 
   // Fast-drop is instant, so we need to show a guide.
   if(game_settings.set_drop_shadow) { 
-    graphics_context_set_fill_color(ctx, theme.drop_shadow_color);
+    #ifdef PBL_COLOR
+      graphics_context_set_fill_color(ctx, theme.drop_shadow_color);
+    #endif
     int max_drop = find_max_drop(block, s_grid_blocks);
       for (int i=0; i<4; i++) {
-      GRect brick_ghost = GRect(block[i].x * BLOCK_SIZE, (block[i].y + max_drop)*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-      graphics_fill_rect(ctx, brick_ghost, 0, GCornerNone);
+        #ifdef PBL_COLOR
+          GRect brick_ghost = GRect(block[i].x * BLOCK_SIZE, (block[i].y + max_drop)*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          graphics_fill_rect(ctx, brick_ghost, 0, GCornerNone);
+        #else
+          GRect brick_ghost = GRect(block[i].x * BLOCK_SIZE +1, (block[i].y + max_drop)*BLOCK_SIZE+1, BLOCK_SIZE-1, BLOCK_SIZE-1);
+          graphics_draw_bitmap_in_rect(ctx, s_bw_shadow_sprite, brick_ghost);
+      #endif
     }
   }
   // Draw the actual block.
-  graphics_context_set_stroke_color(ctx, theme.block_border_color);
-  graphics_context_set_fill_color(ctx, theme.block_color[s_game_state.block_type]);
+  #ifdef PBL_COLOR
+    graphics_context_set_stroke_color(ctx, theme.block_border_color);
+    graphics_context_set_fill_color(ctx, theme.block_color[s_game_state.block_type]);
+  #else
+    graphics_context_set_stroke_color(ctx, GColorBlack);
+  #endif
+
   for (int i=0; i<4; i++) {
-    GRect brick_block = GRect(block[i].x * BLOCK_SIZE, block[i].y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-    graphics_fill_rect(ctx, brick_block, 0, GCornerNone);
-    graphics_draw_rect(ctx, brick_block);
+    GRect brick = GRect(block[i].x * BLOCK_SIZE, block[i].y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    #ifdef PBL_COLOR
+      graphics_fill_rect(ctx, brick, 0, GCornerNone);
+      graphics_draw_rect(ctx, brick);
+    #else
+      prv_draw_bw_block(ctx, brick, s_game_state.block_type);
+    #endif
   }
 }
 
@@ -340,7 +383,13 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, color_bg, 0, GCornerNone);
 
   // Game BG.
-  graphics_context_set_fill_color(ctx, theme.grid_bg_color);
+  #ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, theme.grid_bg_color);
+  #else
+    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_context_set_stroke_color(ctx, GColorBlack);
+  #endif
+
   GRect game_bg = GRect(GRID_ORIGIN_X, GRID_ORIGIN_Y, GRID_PIXEL_WIDTH, GRID_PIXEL_HEIGHT);
   graphics_fill_rect(ctx, game_bg, 0, GCornerNone);
 
@@ -348,44 +397,68 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
   for (int i=0; i<GAME_GRID_BLOCK_WIDTH; i++) {
     for (int j=0; j<GAME_GRID_BLOCK_HEIGHT; j++) {
       if (s_grid_colors[i][j] != 255) {
-        graphics_context_set_fill_color(ctx, theme.block_color[s_grid_colors[i][j]]);
         GRect brick = GRect((i*BLOCK_SIZE) + GRID_ORIGIN_X, (j*BLOCK_SIZE) + GRID_ORIGIN_Y, BLOCK_SIZE, BLOCK_SIZE);
-        graphics_fill_rect(ctx, brick, 0, GCornerNone);
+        #ifdef PBL_COLOR
+          graphics_context_set_fill_color(ctx, theme.block_color[s_grid_colors[i][j]]);
+          graphics_fill_rect(ctx, brick, 0, GCornerNone);
+        #else
+          prv_draw_bw_block(ctx, brick, s_grid_colors[i][j]);
+        #endif
       }
     }
   }
 
+  #ifdef PBL_BW
+    // BG for upcoming block view
+    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_fill_rect(ctx, GRect(LABEL_X, GRID_PADDING, LABEL_WIDTH, BLOCK_SIZE*5), 0, GCornerNone);
+  #endif
+
   // Display preview of upcoming block
-  graphics_context_set_stroke_color(ctx, theme.block_border_color);
-  graphics_context_set_fill_color(ctx, theme.block_color[s_game_state.next_block_type]);
+  #ifdef PBL_COLOR
+    graphics_context_set_stroke_color(ctx, theme.block_border_color);
+    graphics_context_set_fill_color(ctx, theme.block_color[s_game_state.next_block_type]);
+  #endif
 
   #if defined(PBL_ROUND)
-  int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + BLOCK_SIZE * 2) + next_block_offset(s_game_state.next_block_type);
-  int sPosY =  GRID_ORIGIN_Y + BLOCK_SIZE * 5;
+    int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + BLOCK_SIZE * 2) + next_block_offset(s_game_state.next_block_type);
+    int sPosY =  GRID_ORIGIN_Y + BLOCK_SIZE * 5;
   #else
-  // for rectangular screen, center the next block display in the right pane
-  int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + (bounds_width - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH)) / 2) + next_block_offset(s_game_state.next_block_type) - BLOCK_SIZE/2;
-  int sPosY =  GRID_ORIGIN_Y + BLOCK_SIZE * 2;
+    // for rectangular screen, center the next block display in the right pane
+    int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + (bounds_width - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH)) / 2) + next_block_offset(s_game_state.next_block_type) - BLOCK_SIZE/2;
+    int sPosY =  GRID_ORIGIN_Y + BLOCK_SIZE * (s_game_state.next_block_type == LINE ? 2 : 2.5);
   #endif
 
   for (int i=0; i<4; i++) {
     GRect bl = GRect(sPosX+(s_game_state.next_block[i].x * BLOCK_SIZE), sPosY+(s_game_state.next_block[i].y * BLOCK_SIZE), BLOCK_SIZE, BLOCK_SIZE);
-    graphics_fill_rect(ctx, bl, 0, GCornerNone);
-    graphics_draw_rect(ctx, bl);
+    #ifdef PBL_COLOR
+      graphics_fill_rect(ctx, bl, 0, GCornerNone);
+      graphics_draw_rect(ctx, bl);
+    #else
+      prv_draw_bw_block(ctx, bl, s_game_state.next_block_type);
+    #endif
   }
 
   // Game BG grid.
-  graphics_context_set_stroke_color(ctx, theme.grid_lines_color);
-  // Draw vertical lines
-  for (int i=GRID_ORIGIN_X; i<=(GRID_PIXEL_WIDTH+GRID_ORIGIN_X); i+=BLOCK_SIZE) {
-    graphics_draw_line(ctx, GPoint(i, GRID_ORIGIN_Y), GPoint(i, GRID_ORIGIN_Y + GRID_PIXEL_HEIGHT)); 
-  }
-  // Draw horizontal lines
-  for (int i=GRID_ORIGIN_Y; i<=(GRID_PIXEL_HEIGHT+GRID_ORIGIN_Y); i+=BLOCK_SIZE) {
-    graphics_draw_line(ctx, GPoint(GRID_ORIGIN_X, i), GPoint(GRID_ORIGIN_X+GRID_PIXEL_WIDTH, i));
-  }
+  #ifdef PBL_COLOR
+    graphics_context_set_stroke_color(ctx, theme.grid_lines_color);
+    // Draw vertical lines
+    for (int i=GRID_ORIGIN_X; i<=(GRID_PIXEL_WIDTH+GRID_ORIGIN_X); i+=BLOCK_SIZE) {
+      graphics_draw_line(ctx, GPoint(i, GRID_ORIGIN_Y), GPoint(i, GRID_ORIGIN_Y + GRID_PIXEL_HEIGHT)); 
+    }
+    // Draw horizontal lines
+    for (int i=GRID_ORIGIN_Y; i<=(GRID_PIXEL_HEIGHT+GRID_ORIGIN_Y); i+=BLOCK_SIZE) {
+      graphics_draw_line(ctx, GPoint(GRID_ORIGIN_X, i), GPoint(GRID_ORIGIN_X+GRID_PIXEL_WIDTH, i));
+    }
+  #endif
 }
 
+#ifdef PBL_BW
+  static void prv_draw_bw_block(GContext *ctx, GRect rect, uint8_t block_type) {
+    graphics_draw_rect(ctx, GRect(rect.origin.x, rect.origin.y, rect.size.w + 1, rect.size.h + 1));
+    graphics_draw_bitmap_in_rect(ctx, s_bw_block_sprites[block_type], GRect(rect.origin.x + 1, rect.origin.y + 1, rect.size.w - 1, rect.size.h - 1));
+  }
+#endif
 
 // ------------------------ //
 // **** GAME FUNCTIONS **** //
@@ -597,7 +670,7 @@ static void prv_check_if_lost(){
     if (block[i].y == 0) {
       s_status = GameStatusLost;
       Layer *window_layer = window_get_root_layer(s_window);
-
+      // TODO: DELETE SAVE HERE INSTEAD?
       text_layer_set_text(s_paused_label_layer, "You lost!");
       layer_add_child(window_layer, text_layer_get_layer(s_paused_label_layer));
       
@@ -629,6 +702,7 @@ static void prv_s_longpress_tick(void *data) {
 
 static void prv_lockdelay_tick(void *data) {
   if (s_status != GameStatusPlaying) { return; }
+  // TODO: Deal with block when lock delay is active but game has been paused
 
   prv_lock_piece();
   s_lockdelay_timer = NULL;

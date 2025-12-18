@@ -56,20 +56,23 @@ typedef struct {
   GColor window_label_bg_color;
   GColor window_label_bg_inactive_color;
   GColor grid_bg_color;
+  #ifdef PBL_COLOR
   GColor grid_lines_color;
   GColor block_color[7];
   GColor block_border_color;
   GColor drop_shadow_color;
   GColor select_color;
   GColor score_accent_color;
+  #endif
 } Theme;
 
 extern GameSettings game_settings;
 extern Theme theme;
 
-extern GFont s_font_mono_tall;
-extern GFont s_font_mono_small;
+extern GFont s_font_mono_line;
+extern GFont s_font_mono;
 extern GFont s_font_mono_big;
+extern GFont s_font_menu;
 
 void update_string_num_layer (char* str_in, int num, char* str_out, size_t out_size, TextLayer *layer);
 

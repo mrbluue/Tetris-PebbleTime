@@ -89,17 +89,17 @@ static void prv_window_load(Window *window){
   int16_t bounds_width = bounds.size.w;
   int16_t bounds_height = bounds.size.h;
 
-  s_header_layer = text_layer_create(GRect(0, 16, bounds_width, 20));
-  text_layer_set_text(s_header_layer, "High Scores");
-  text_layer_set_font(s_header_layer, s_font_mono_small);
+  s_header_layer = text_layer_create(GRect(0, 16, bounds_width, 39));
+  text_layer_set_text(s_header_layer, PBL_IF_ROUND_ELSE("HIGH\nSCORES", "HIGH SCORE"));
+  text_layer_set_font(s_header_layer, s_font_menu);
   text_layer_set_text_alignment(s_header_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_header_layer, GColorClear);
   text_layer_set_text_color(s_header_layer, theme.window_header_color);
   layer_add_child(window_layer, text_layer_get_layer(s_header_layer));
   
   for (int i=0; i<MAX_SCORES_SHOWN; i++){
-    s_score_text_layer[i] = text_layer_create(GRect(0, 42 + i * SCORE_LABEL_HEIGHT, bounds_width, SCORE_LABEL_HEIGHT));
-    text_layer_set_font(s_score_text_layer[i], s_font_mono_small);
+    s_score_text_layer[i] = text_layer_create(GRect(0, SCORES_START_Y + i * SCORE_LABEL_HEIGHT, bounds_width, SCORE_LABEL_HEIGHT));
+    text_layer_set_font(s_score_text_layer[i], s_font_mono);
     text_layer_set_text_alignment(s_score_text_layer[i], GTextAlignmentCenter);
     text_layer_set_background_color(s_score_text_layer[i], GColorClear);
     text_layer_set_text_color(s_score_text_layer[i], theme.window_header_color);
@@ -113,11 +113,11 @@ static void prv_window_load(Window *window){
     layer_add_child(window_layer, text_layer_get_layer(s_score_text_layer[i]));
   }
 
-  s_bad_score_text_layer = text_layer_create(GRect(0, 42 + MAX_SCORES_SHOWN * SCORE_LABEL_HEIGHT + 4, bounds_width, SCORE_LABEL_HEIGHT));
-  text_layer_set_font(s_bad_score_text_layer, s_font_mono_small);
+  s_bad_score_text_layer = text_layer_create(GRect(0, SCORES_START_Y + MAX_SCORES_SHOWN * SCORE_LABEL_HEIGHT + 4, bounds_width, SCORE_LABEL_HEIGHT));
+  text_layer_set_font(s_bad_score_text_layer, s_font_mono);
   text_layer_set_text_alignment(s_bad_score_text_layer, GTextAlignmentCenter);
   text_layer_set_background_color(s_bad_score_text_layer, GColorClear);
-  text_layer_set_text_color(s_bad_score_text_layer, theme.score_accent_color);
+  text_layer_set_text_color(s_bad_score_text_layer, PBL_IF_COLOR_ELSE(theme.score_accent_color, theme.window_header_color));
 
   s_name_picker_layer = layer_create(GRect(0, 0, bounds_width, bounds_height));
   layer_set_update_proc(s_name_picker_layer, prv_draw_name_select);
@@ -191,8 +191,8 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   gpath_draw_filled(ctx, s_selector_path);
   
   // HEADER TITLE
-  GRect header = GRect(PBL_IF_ROUND_ELSE(24, 9), 50, SCREEN_WIDTH - PBL_IF_ROUND_ELSE(48, 18), 16);
-  graphics_draw_text(ctx, "ENTER YOUR NAME", s_font_mono_small, header, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+  GRect header = GRect(NAME_INPUT_PAD, 50, SCREEN_WIDTH - (NAME_INPUT_PAD*2), 16);
+  graphics_draw_text(ctx, "ENTER YOUR NAME", s_font_mono, header, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
 }
 
 // -------------------------- //
@@ -292,8 +292,11 @@ static void prv_show_scores(){
   for (int i=0; i<MAX_SCORES_SHOWN; i++){
     if(s_game_scores[i].score){
       text_layer_set_text(s_score_text_layer[i], prv_get_score_string(i));
-      if(i == s_new_score_pos) 
-        text_layer_set_text_color(s_score_text_layer[i], theme.score_accent_color);
+      #ifdef PBL_COLOR
+        if(i == s_new_score_pos) {
+          text_layer_set_text_color(s_score_text_layer[i], theme.score_accent_color);
+        }
+      #endif
     } else 
       text_layer_set_text(s_score_text_layer[i], "-");
   }

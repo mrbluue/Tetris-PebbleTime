@@ -213,6 +213,15 @@ int next_block_offset (int block_type) {
 
 void set_theme(int theme_id) {
   // Load themes from the raw data (generated with the Python script from the json files in the themes folder)
-  int i = theme_id % THEMES_COUNT;
-  resource_load_byte_range(resource_get_handle(RESOURCE_ID_THEMES), i*THEMES_BYTES, (uint8_t*)&theme, THEMES_BYTES);
+  #ifdef PBL_COLOR
+    int i = theme_id % THEMES_COUNT;
+    resource_load_byte_range(resource_get_handle(RESOURCE_ID_THEMES), i*THEMES_BYTES, (uint8_t*)&theme, THEMES_BYTES);
+  #else
+    theme.window_bg_color = GColorBlack;
+    theme.window_header_color = GColorWhite;
+    theme.window_label_text_color = GColorBlack;
+    theme.window_label_bg_color = GColorWhite;
+    theme.window_label_bg_inactive_color = GColorLightGray;
+    theme.grid_bg_color = GColorWhite;
+  #endif
 }
