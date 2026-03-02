@@ -26,6 +26,22 @@
   #define MENU_OPTIONS_X 0
   #define MENU_OPTIONS_Y (MENU_GRID_Y + MENU_GRID_BLOCK_SIZE + MENU_GRID_STROKE) - 1
   #define MENU_OPTIONS_H 17
+#elif defined(PBL_PLATFORM_GABBRO)
+  #define MENU_TITLE_X 43
+  #define MENU_TITLE_Y 36
+  #define MENU_TITLE_W 174
+  #define MENU_TITLE_H 19
+  
+  #define MENU_GRID_BLOCK_SIZE 18
+  #define MENU_GRID_COLS 10
+  #define MENU_GRID_ROWS 9
+  #define MENU_GRID_STROKE 2
+  #define MENU_GRID_X_OFFSET 3
+  #define MENU_GRID_Y 66
+
+  #define MENU_OPTIONS_X 0
+  #define MENU_OPTIONS_Y (MENU_GRID_Y + MENU_GRID_BLOCK_SIZE + MENU_GRID_STROKE) - 1
+  #define MENU_OPTIONS_H 17
 #elif defined(PBL_PLATFORM_CHALK)
   #define MENU_TITLE_X 33
   #define MENU_TITLE_Y 28
@@ -168,7 +184,7 @@ static void draw_title_pane(Layer *layer, GContext *ctx) {
   }
 
   graphics_context_set_fill_color(ctx, GColorDarkGray);
-  graphics_fill_rect(ctx, GRect(0, grid_origin_y, SCREEN_WIDTH, SCREEN_HEIGHT - grid_origin_y), 0, GCornerNone);
+  graphics_fill_rect(ctx, GRect(0, grid_origin_y, PBL_DISPLAY_WIDTH, PBL_DISPLAY_HEIGHT - grid_origin_y), 0, GCornerNone);
 
   graphics_context_set_stroke_color(ctx, GColorBlack);
   graphics_context_set_stroke_width(ctx, MENU_GRID_STROKE);
@@ -176,17 +192,17 @@ static void draw_title_pane(Layer *layer, GContext *ctx) {
   #ifdef PBL_COLOR
     if(menu_option >= 0){
       graphics_context_set_fill_color(ctx, theme.block_color[menu_option]);
-      graphics_fill_rect(ctx, GRect(0, MENU_GRID_Y + (menu_option*2) * MENU_GRID_BLOCK_SIZE, SCREEN_WIDTH, MENU_GRID_BLOCK_SIZE * 3), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(0, MENU_GRID_Y + (menu_option*2) * MENU_GRID_BLOCK_SIZE, PBL_DISPLAY_WIDTH, MENU_GRID_BLOCK_SIZE * 3), 0, GCornerNone);
     }
   #endif
 
   // vertical lines
-  for (int i=MENU_GRID_X_OFFSET; i<=SCREEN_WIDTH; i+=MENU_GRID_BLOCK_SIZE) {
-    graphics_draw_line(ctx, GPoint(i, grid_origin_y), GPoint(i, SCREEN_HEIGHT)); 
+  for (int i=MENU_GRID_X_OFFSET; i<=PBL_DISPLAY_WIDTH; i+=MENU_GRID_BLOCK_SIZE) {
+    graphics_draw_line(ctx, GPoint(i, grid_origin_y), GPoint(i, PBL_DISPLAY_HEIGHT)); 
   }
   // horizontal lines
-  for (int i=grid_origin_y; i<=SCREEN_HEIGHT; i+=MENU_GRID_BLOCK_SIZE) {
-    graphics_draw_line(ctx, GPoint(0, i), GPoint(SCREEN_WIDTH, i)); 
+  for (int i=grid_origin_y; i<=PBL_DISPLAY_HEIGHT; i+=MENU_GRID_BLOCK_SIZE) {
+    graphics_draw_line(ctx, GPoint(0, i), GPoint(PBL_DISPLAY_WIDTH, i)); 
   }
 
   #ifdef PBL_BW
@@ -195,7 +211,7 @@ static void draw_title_pane(Layer *layer, GContext *ctx) {
         text_layer_set_text_color(s_menu_option_text_layer[i], GColorWhite);
       }
       layer_set_hidden(bitmap_layer_get_layer(s_menu_option_bg_bitmap_layer), false);
-      layer_set_frame(bitmap_layer_get_layer(s_menu_option_bg_bitmap_layer), GRect(0, MENU_GRID_Y+2 + (menu_option*2) * MENU_GRID_BLOCK_SIZE, SCREEN_WIDTH, 36));
+      layer_set_frame(bitmap_layer_get_layer(s_menu_option_bg_bitmap_layer), GRect(0, MENU_GRID_Y+2 + (menu_option*2) * MENU_GRID_BLOCK_SIZE, PBL_DISPLAY_WIDTH, 36));
       text_layer_set_text_color(s_menu_option_text_layer[menu_option], GColorBlack);
     }
   #endif
@@ -231,7 +247,7 @@ static void window_load(Window *window) {
 
   #ifdef PBL_BW
     s_menu_option_bg_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MENU_OPTION_BG_BW);
-    s_menu_option_bg_bitmap_layer = bitmap_layer_create(GRect(0, MENU_GRID_Y+3+25, SCREEN_WIDTH, 36));
+    s_menu_option_bg_bitmap_layer = bitmap_layer_create(GRect(0, MENU_GRID_Y+3+25, PBL_DISPLAY_WIDTH, 36));
     bitmap_layer_set_compositing_mode(s_menu_option_bg_bitmap_layer, GCompOpSet);
     bitmap_layer_set_bitmap(s_menu_option_bg_bitmap_layer, s_menu_option_bg_bitmap);
     layer_add_child(window_layer, bitmap_layer_get_layer(s_menu_option_bg_bitmap_layer));
@@ -239,7 +255,7 @@ static void window_load(Window *window) {
   #endif
 
   for(int i=0; i<MENU_OPTIONS; i++){
-    s_menu_option_text_layer[i] = text_layer_create(GRect(MENU_OPTIONS_X, MENU_OPTIONS_Y + (i*2) * MENU_GRID_BLOCK_SIZE, SCREEN_WIDTH, MENU_OPTIONS_H));
+    s_menu_option_text_layer[i] = text_layer_create(GRect(MENU_OPTIONS_X, MENU_OPTIONS_Y + (i*2) * MENU_GRID_BLOCK_SIZE, PBL_DISPLAY_WIDTH, MENU_OPTIONS_H));
     text_layer_set_text(s_menu_option_text_layer[i], MENU_OPTIONS_LABELS[i]);
     text_layer_set_text_alignment(s_menu_option_text_layer[i], GTextAlignmentCenter);
     text_layer_set_font(s_menu_option_text_layer[i], s_font_menu);
@@ -281,7 +297,7 @@ static void window_unload(Window *window) {
 }
 
 static void init(void) {
-  #ifdef PBL_PLATFORM_EMERY
+  #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
     s_font_mono      = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_11)); // high score page
     s_font_mono_line = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_19)); // same with margin on top of characters
     s_font_mono_big  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_PUBLICPIXEL_24)); // high score name input
@@ -330,8 +346,7 @@ static void deinit(void) {
 int main(void) {
   init();
 
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", s_window);
-
   app_event_loop();
+  
   deinit();
 }

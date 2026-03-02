@@ -1,7 +1,7 @@
 {
   "name": "pebbletris",
   "author": "MrBlue",
-  "version": "2.10",
+  "version": "2.20",
   "keywords": [
     "pebble-app"
   ],
@@ -17,7 +17,8 @@
       "chalk",
       "diorite",
       "emery",
-      "flint"
+      "flint",
+      "gabbro"
     ],
     "watchapp": {
       "watchface": false
@@ -58,7 +59,7 @@
           "type": "font",
           "characterRegex": "[ -~]",
           "targetPlatforms": [
-            "emery"
+            "emery","gabbro"
           ]
         },
         {
@@ -110,7 +111,7 @@
           "type": "font",
           "characterRegex": "[ -~]",
           "targetPlatforms": [
-            "emery"
+            "emery","gabbro"
           ]
         },
         {
@@ -119,7 +120,7 @@
           "type": "font",
           "characterRegex": "[ -~]",
           "targetPlatforms": [
-            "emery"
+            "emery","gabbro"
           ]
         },
         {
@@ -128,7 +129,7 @@
           "type": "font",
           "characterRegex": "[A-Z]",
           "targetPlatforms": [
-            "emery"
+            "emery","gabbro"
           ]
         },
         {
@@ -136,7 +137,7 @@
           "name": "THEMES",
           "type": "raw",
           "targetPlatforms": [
-            "basalt", "chalk", "emery"
+            "basalt", "chalk", "emery","gabbro"
           ]
         }
       ]

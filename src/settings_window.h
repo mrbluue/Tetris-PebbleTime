@@ -3,28 +3,47 @@
 #define SETTINGS_COUNT 4
 
 #ifdef PBL_PLATFORM_EMERY
+  #define SETTINGS_HEADER_TOP 16
+  
   #define SETTINGS_LABEL_HEIGHT 42
   #define SETTINGS_LABEL_DISTANCE 12
+  #define SETTINGS_LABEL_TOP_Y 48
 
   #define PREV_BOX_X 12
+  #define PREV_BOX_Y 46
+#elif defined(PBL_PLATFORM_GABBRO)
+  #define SETTINGS_HEADER_TOP 24
+  
+  #define SETTINGS_LABEL_HEIGHT 46
+  #define SETTINGS_LABEL_DISTANCE 12
+  #define SETTINGS_LABEL_TOP_Y 54
+
+  #define PREV_BOX_X 34
+  #define PREV_BOX_Y 54
 #elif defined(PBL_PLATFORM_CHALK)
+  #define SETTINGS_HEADER_TOP 22
+  
   #define SETTINGS_LABEL_HEIGHT 30
   #define SETTINGS_LABEL_DISTANCE 8
+  #define SETTINGS_LABEL_TOP_Y 48
 
   #define PREV_BOX_X 26
+  #define PREV_BOX_Y 46
 #else
+  #define SETTINGS_HEADER_TOP 16
+  
   #define SETTINGS_LABEL_HEIGHT 30
   #define SETTINGS_LABEL_DISTANCE 8
+  #define SETTINGS_LABEL_TOP_Y 48
 
   #define PREV_BOX_X 9
+  #define PREV_BOX_Y 46
 #endif
 
 #define PREV_BOX_H (11*BLOCK_SIZE)
-#define PREV_BOX_Y 46
 
 #define SETTINGS_LABEL_PAD_L 14
-#define SETTINGS_LABEL_TOP_Y 48
 #define SETTINGS_INPUT_PAD_R 12
-#define SETTINGS_INPUT_TOP_Y 52
+#define SETTINGS_INPUT_TOP_OFFSET 4
 
 void settings_window_push();

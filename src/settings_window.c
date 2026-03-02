@@ -19,14 +19,21 @@ static GPath     *s_selector_path; // arrow for menu select
 #endif
 
 static char *MENU_OPTION_LABELS[SETTINGS_COUNT] = {"Drop Shadows", "Rotation", "Backlight", "Theme"};
+
 #ifdef PBL_PLATFORM_EMERY
   static char *MENU_INPUT_LABELS[SETTINGS_COUNT][THEMES_COUNT] = {{"OFF", "ON"}, {"Clockwise", "Counter Clock."}, {"Default", "Always ON"}, {"< 1 >", "< 2 >", "< 3 >", "< 4 >"}};
 #else
   static char *MENU_INPUT_LABELS[SETTINGS_COUNT][THEMES_COUNT] = {{"OFF", "ON"}, {"Clockwise", "Cnt. Clock."}, {"Default", "Alw. ON"}, {"< 1 >", "< 2 >", "< 3 >", "< 4 >"}};
 #endif
-static int   MENU_INPUT_VALUES[SETTINGS_COUNT] = {0, 0, 0, 0};
-#ifdef PBL_PLATFORM_CHALK
-  static int MENU_OPTION_ROUND_OFFSET[SETTINGS_COUNT] = {8, 4, 12, 34};
+
+static int MENU_INPUT_VALUES[SETTINGS_COUNT] = {0, 0, 0, 0};
+
+#ifdef PBL_ROUND
+  #ifdef PBL_PLATFORM_CHALK
+  static int MENU_OPTION_ROUND_OFFSET[SETTINGS_COUNT] = {12, 4, 12, 34};
+  #elif defined(PBL_PLATFORM_GABBRO)
+  static int MENU_OPTION_ROUND_OFFSET[SETTINGS_COUNT] = {18, 6, 12, 36};
+  #endif
 #endif
 
 static int current_setting = 0;
@@ -73,7 +80,7 @@ static void prv_window_load(Window *window){
   layer_set_update_proc(s_select_layer, prv_draw_select);
   layer_add_child(window_layer, s_select_layer);
 
-  s_header_layer = text_layer_create(GRect(0, 16, bounds_width, 20));
+  s_header_layer = text_layer_create(GRect(0, SETTINGS_HEADER_TOP, bounds_width, 20));
   text_layer_set_text(s_header_layer, "SETTINGS");
   text_layer_set_font(s_header_layer, s_font_menu);
   text_layer_set_text_alignment(s_header_layer, GTextAlignmentCenter);
@@ -93,7 +100,7 @@ static void prv_window_load(Window *window){
         SETTINGS_LABEL_HEIGHT
       ));
     text_layer_set_text(s_settings_label_layer[i], MENU_OPTION_LABELS[i]);
-    #ifdef PBL_PLATFORM_EMERY
+    #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
       text_layer_set_font(s_settings_label_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_24));
     #else
       text_layer_set_font(s_settings_label_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_18));
@@ -105,7 +112,7 @@ static void prv_window_load(Window *window){
     s_settings_input_layer[i] = text_layer_create(
       GRect(
         0, 
-        SETTINGS_INPUT_TOP_Y + i * SETTINGS_LABEL_HEIGHT, 
+        SETTINGS_LABEL_TOP_Y + SETTINGS_INPUT_TOP_OFFSET + i * SETTINGS_LABEL_HEIGHT, 
         PBL_IF_RECT_ELSE(
           bounds_width - SETTINGS_INPUT_PAD_R, 
           bounds_width - (SETTINGS_INPUT_PAD_R + MENU_OPTION_ROUND_OFFSET[i])
@@ -114,7 +121,7 @@ static void prv_window_load(Window *window){
       ));
     text_layer_set_text(s_settings_input_layer[i], MENU_INPUT_LABELS[i][0]);
     text_layer_set_text_alignment(s_settings_input_layer[i], GTextAlignmentRight);
-    #ifdef PBL_PLATFORM_EMERY
+    #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
       text_layer_set_font(s_settings_input_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
     #else
       text_layer_set_font(s_settings_input_layer[i], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
@@ -162,7 +169,7 @@ static void prv_window_unload(Window *window){
 
 static void prv_draw_select(Layer *layer, GContext *ctx){
   graphics_context_set_fill_color(ctx, theme.window_bg_color); // this instead of window_set_background_color so that it refreshes when changing theme
-  graphics_fill_rect(ctx, GRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 0, GCornerNone);
+  graphics_fill_rect(ctx, GRect(0, 0, PBL_DISPLAY_WIDTH, PBL_DISPLAY_HEIGHT), 0, GCornerNone);
 
   graphics_context_set_fill_color(ctx, theme.window_label_bg_color);
   if(s_timer != NULL){
@@ -170,7 +177,7 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
   }
   for (int i=0; i<SETTINGS_COUNT; i++){
     // Draw label BGs separately from text layers
-    graphics_fill_rect(ctx, GRect(0, 50 + i * SETTINGS_LABEL_HEIGHT, SCREEN_WIDTH, SETTINGS_LABEL_HEIGHT - SETTINGS_LABEL_DISTANCE), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(0, SETTINGS_LABEL_TOP_Y + i * SETTINGS_LABEL_HEIGHT, PBL_DISPLAY_WIDTH, SETTINGS_LABEL_HEIGHT - SETTINGS_LABEL_DISTANCE), 0, GCornerNone);
   }
 
   graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(theme.select_color, GColorBlack));
@@ -178,12 +185,14 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
   int x_off = -6;
   int y_off = current_setting * SETTINGS_LABEL_HEIGHT;
 
-  #ifdef PBL_PLATFORM_CHALK
+  #ifdef PBL_ROUND
   x_off += MENU_OPTION_ROUND_OFFSET[current_setting] - 2;
   #endif
 
   #ifdef PBL_PLATFORM_EMERY
   y_off += 4;
+  #elif defined(PBL_PLATFORM_GABBRO)
+  y_off += 8;
   #endif
 
   selector[0] = GPoint(x_off + 10, 57 + y_off);
@@ -196,15 +205,15 @@ static void prv_draw_select(Layer *layer, GContext *ctx){
 
 static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
   graphics_context_set_fill_color(ctx, theme.grid_bg_color);
-  GRect background = GRect(PREV_BOX_X, PREV_BOX_Y, SCREEN_WIDTH - (PREV_BOX_X * 2), PREV_BOX_H);
+  GRect background = GRect(PREV_BOX_X, PREV_BOX_Y, PBL_DISPLAY_WIDTH - (PREV_BOX_X * 2), PREV_BOX_H);
   graphics_fill_rect(ctx, background, 0, GCornerNone);
 
   for(int i=0; i<7; i++){
     GPoint block[4];
     
     int block_x = 2 * i - ((i+1) % 2);
-    if(i==SQUARE){block_x = 0;}
-    if(i==LINE){block_x -= 1;}
+    if(i==O){block_x = 0;}
+    if(i==I){block_x -= 1;}
     int block_y = 3 + 4 * (i % 2);
 
     make_block(block, i, block_x, block_y);
@@ -227,12 +236,12 @@ static void prv_draw_theme_preview(Layer *layer, GContext *ctx){
   #ifdef PBL_COLOR
     graphics_context_set_stroke_color(ctx, theme.grid_lines_color);
     // Draw vertical lines
-    for (int i=PREV_BOX_X-1+BLOCK_SIZE; i<(SCREEN_WIDTH - PREV_BOX_X - 2); i+=BLOCK_SIZE) {
+    for (int i=PREV_BOX_X-1+BLOCK_SIZE; i<(PBL_DISPLAY_WIDTH - PREV_BOX_X - 2); i+=BLOCK_SIZE) {
       graphics_draw_line(ctx, GPoint(i, PREV_BOX_Y), GPoint(i, PREV_BOX_Y + PREV_BOX_H - 2)); // -2 at the end => not overlap box edge
     }
     // Draw horizontal lines
     for (int i=PREV_BOX_Y+BLOCK_SIZE; i<(PREV_BOX_Y + PREV_BOX_H - 2); i+=BLOCK_SIZE) {
-      graphics_draw_line(ctx, GPoint(PREV_BOX_X, i), GPoint(SCREEN_WIDTH - PREV_BOX_X - 2, i));
+      graphics_draw_line(ctx, GPoint(PREV_BOX_X, i), GPoint(PBL_DISPLAY_WIDTH - PREV_BOX_X - 2, i));
     }
   #endif
 

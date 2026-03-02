@@ -7,6 +7,11 @@
   #define INPUT_FONT_SIZE 24
   #define NAME_INPUT_PAD 12
   #define SCORES_START_Y 42
+#elif defined(PBL_PLATFORM_GABBRO)
+  #define SCORE_LABEL_HEIGHT 20
+  #define INPUT_FONT_SIZE 24
+  #define NAME_INPUT_PAD 12
+  #define SCORES_START_Y 42
 #else
   #ifdef PBL_PLATFORM_CHALK
     #define NAME_INPUT_PAD 24
@@ -18,8 +23,6 @@
   #define SCORE_LABEL_HEIGHT 12 
   #define INPUT_FONT_SIZE 16
 #endif
-
-
 
 typedef struct {
   char name[4];

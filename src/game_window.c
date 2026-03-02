@@ -11,6 +11,9 @@ static GameStatus s_status;
 static bool s_grid_blocks[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
 static uint8_t s_grid_colors[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
 
+static Tetromino s_mino_bag[BLOCK_TYPES];
+static Tetromino s_mino_bag_index;
+
 static bool s_pause_from_focus = false;
 static bool s_pause_lock_delay = false;
 
@@ -73,7 +76,11 @@ static void prv_game_rotate_piece();
 static void prv_reset_lock_delay();
 static void prv_lock_piece();
 static void prv_clear_rows();
-static void prv_check_if_lost();
+static void prv_game_lost();
+static void prv_check_top_out(GPoint *block);
+static void prv_check_block_out(GPoint *block);
+static void prv_refill_mino_bag();
+static Tetromino prv_get_next_piece();
 
 static void prv_game_tick(void *data);
 static void prv_s_longpress_tick(void *data);
@@ -337,7 +344,7 @@ static void prv_click_config_provider(void *context) {
 // Draw current block and its shadow in game area
 static void prv_draw_game(Layer *layer, GContext *ctx) {
 
-  if (s_status != GameStatusPlaying || s_game_state.block_type == -1) { return; }
+  if (s_status != GameStatusPlaying || s_game_state.block_type == NONE) { return; }
 
   GPoint *block = s_game_state.block;
 
@@ -433,7 +440,7 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
   #else
     // for rectangular screen, center the next block display in the right pane
     int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + (bounds_width - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH)) / 2) + next_block_offset(s_game_state.next_block_type) - BLOCK_SIZE/2;
-    int sPosY =  GRID_ORIGIN_Y + BLOCK_SIZE * (s_game_state.next_block_type == LINE ? 2 : 2.5);
+    int sPosY =  GRID_ORIGIN_Y + BLOCK_SIZE * (s_game_state.next_block_type == I ? 2 : 2.5);
   #endif
 
   for (int i=0; i<4; i++) {
@@ -472,15 +479,18 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
 // ------------------------ //
 
 static void prv_game_cycle() {
-  if (s_game_state.block_type == -1) {
+  if (s_game_state.block_type == NONE) {
     // Create a new block.
     s_game_state.rotation = 0;
     s_game_state.block_type = s_game_state.next_block_type;
-    s_game_state.next_block_type = rand() % 7;
+    s_game_state.next_block_type = prv_get_next_piece();
 
-    GPoint new_block_pos = s_game_state.block_type == LINE ? GPoint(4, 0) : GPoint(5, 1);
+    GPoint new_block_pos = s_game_state.block_type == I ? GPoint(4, 0) : GPoint(5, 1);
 
     make_block(s_game_state.block, s_game_state.block_type, new_block_pos.x, new_block_pos.y);
+
+    prv_check_block_out(s_game_state.block);
+
     make_block(s_game_state.next_block, s_game_state.next_block_type, 0, 0);
   }
   else {
@@ -516,6 +526,7 @@ static bool prv_can_drop(){
   for (int i=0; i<4; i++) {
     int dropped_block_Y = block[i].y + 1;
     if (dropped_block_Y > 19) { can_drop = false; }
+    if (s_grid_blocks[block[i].x][block[i].y]) { can_drop = false; }
     if (s_grid_blocks[block[i].x][dropped_block_Y]) { can_drop = false; }
   }
 
@@ -543,7 +554,7 @@ static void prv_game_move_piece(int movement){
 
 static void prv_game_rotate_piece() {
   // before rotation logic, is there a piece? (or if yes, is it not a square?)
-  if (s_game_state.block_type == -1 || s_game_state.block_type == SQUARE) { return; }
+  if (s_game_state.block_type == NONE || s_game_state.block_type == O) { return; }
 
   int new_rotation = (s_game_state.rotation + 1) % 4;
   if(game_settings.set_counterclockwise){
@@ -583,13 +594,18 @@ static void prv_lock_piece(){
   int8_t block_type = s_game_state.block_type;
 
   // if the block type is -1 it means it's already been locked and we need to wait till next game cycle
-  if(block_type == -1) { return; }
+  if(block_type == NONE) { return; }
 
   // check again that block can't drop
   if(prv_can_drop()) { return; }
 
   // lock block for good
   for (int i=0; i<4; i++) {
+    // Validating each block (especially since we now allow blocks above grid height or y<0)
+    if(block[i].x < 0 || block[i].y < 0) { continue; }
+    if(block[i].x >= GAME_GRID_BLOCK_WIDTH || block[i].y >= GAME_GRID_BLOCK_HEIGHT) { continue; }
+    
+    // Locking block in the arrays
     s_grid_blocks[block[i].x][block[i].y] = true;
     s_grid_colors[block[i].x][block[i].y] = block_type;
   }
@@ -599,11 +615,11 @@ static void prv_lock_piece(){
   // Clear rows if possible.
   prv_clear_rows();
   
-  // check if you've lost
-  prv_check_if_lost();
+  // check if the block is outside the grid
+  prv_check_top_out(s_game_state.block);
 
   // Mark for new block
-  s_game_state.block_type = -1;
+  s_game_state.block_type = NONE;
 }
 
 static void prv_clear_rows(){
@@ -673,20 +689,62 @@ static void prv_clear_rows(){
   s_lines_cleared_at_once = 0;
 }
 
-static void prv_check_if_lost(){
-  GPoint *block = s_game_state.block;
-  // Check whether you've lost by seeing if any block is on the top row (y=0).
-  for (int i=0; i<4; i++) {
-    if (block[i].y == 0) {
-      s_status = GameStatusLost;      
-      s_game_timer = NULL;
-      prv_save_game();
+static void prv_game_lost(){
+  s_status = GameStatusLost;      
+  s_game_timer = NULL;
+  prv_save_game();
 
-      text_layer_set_text(s_paused_label_layer, "You lost!");
-      layer_add_child(window_get_root_layer(s_window), text_layer_get_layer(s_paused_label_layer));
-      return;
-    }
+  text_layer_set_text(s_paused_label_layer, "You lost!");
+  layer_add_child(window_get_root_layer(s_window), text_layer_get_layer(s_paused_label_layer));
+}
+
+// Check whether you've lost by seeing if the current block is outside the top of the grid.
+static void prv_check_top_out(GPoint *block){
+  for (int i=0; i<4; i++) {
+    if (block[i].y >= 0) { continue; }
+    
+    prv_game_lost();
+    return;
   }
+}
+
+// Check whether you've lost by seeing if the current block is overlapping existing blocks.
+static void prv_check_block_out(GPoint *block){
+  for (int i=0; i<4; i++) {
+    if (!s_grid_blocks[block[i].x][block[i].y]) { continue; }
+    
+    // lock the piece to show it on the screen
+    prv_lock_piece();
+    
+    prv_game_lost();
+    return;
+  }
+}
+
+static void prv_refill_mino_bag() {
+  // Fill bag with one of every block type
+  for (int i = 0; i < BLOCK_TYPES; i++) {
+    s_mino_bag[i] = (Tetromino)i;
+  }
+
+  // go in reverse to randomize the bag
+  for (int i = BLOCK_TYPES - 1; i > 0; i--) {
+    // pick random index j
+    int j = rand() % (i + 1);
+    // swap values with current index i
+    Tetromino temp = s_mino_bag[i];
+    s_mino_bag[i] = s_mino_bag[j];
+    s_mino_bag[j] = temp;
+  }
+
+  s_mino_bag_index = 0;
+} 
+
+static Tetromino prv_get_next_piece() {
+  if (s_mino_bag_index >= 7) {
+    prv_refill_mino_bag();
+  }
+  return s_mino_bag[s_mino_bag_index++];
 }
 
 // -------------------------- //
@@ -740,21 +798,26 @@ static void prv_flash_tick(void *data) {
 
 static void prv_setup_game() {
   s_status = GameStatusPlaying;
+  
   s_game_state.lines_cleared = 0;
   s_game_state.level = 1;
   s_game_state.score = 0;
   s_game_state.rotation = 0;
-  s_game_state.next_block_type = rand() % 7;
-  s_game_state.block_type = -1;
 
-  for (int i=0; i<10; i++) {
-    for (int j=0; j<20; j++) {
+  prv_refill_mino_bag();
+  
+  s_game_state.block_type = NONE;
+  s_game_state.next_block_type = prv_get_next_piece();
+
+  for (int i=0; i<GAME_GRID_BLOCK_WIDTH; i++) {
+    for (int j=0; j<GAME_GRID_BLOCK_HEIGHT; j++) {
       s_grid_blocks[i][j] = false;
       s_grid_colors[i][j] = 255;
     }
   }
 
   s_tick_time = s_max_tick;
+  s_mino_bag[0] = s_game_state.next_block_type;
   
   update_string_num_layer("SCORE\n", 0, s_score_str, sizeof(s_score_str), s_score_layer);
   update_string_num_layer("LV.", s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);

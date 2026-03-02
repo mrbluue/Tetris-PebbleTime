@@ -5,18 +5,18 @@ void update_string_num_layer (char* str_in, int num, char* str_out, size_t out_s
   text_layer_set_text(layer, str_out);
 }
 
-const GPoint SHAPES[7][4] = {
+const GPoint SHAPES[BLOCK_TYPES][4] = {
   { 
     // Origin of the grid is in the top left
     // X  Y        * = pivot point at x = 0 & y = 0 at index [0] (part of shape that never rotates)
-    {  0,  0 },  // SQUARE
+    {  0,  0 },  // O
     { -1,  0 },  // |2|3 |
     { -1, -1 },  // |1|0*|
     {  0, -1 }
   },
   { 
     {  0, 0 },
-    { -1, 0 },  // LINE
+    { -1, 0 },  // I
     {  1, 0 },  // |1|0*|2|3|
     {  2, 0 }   
   },
@@ -53,8 +53,10 @@ const GPoint SHAPES[7][4] = {
 
 };
 
-// offset data from SRS obtained thanks to https://harddrop.com/wiki/SRS#How_guideline_SRS_actually_works
-const GPoint JLSTZ_KICKS[4][5] = { // ROTATION / OFFSET
+typedef GPoint KickTable[4][5];
+
+// offset data from SRS obtained thanks to https://tetris.wiki/Super_Rotation_System#How_Guideline_SRS_Really_Works
+const KickTable JLSTZ_KICKS = { // ROTATION / OFFSET
   { // rot 0
     { 0, 0},
     { 0, 0},
@@ -85,7 +87,7 @@ const GPoint JLSTZ_KICKS[4][5] = { // ROTATION / OFFSET
   }
 };
 
-const GPoint I_KICKS[4][5] = {
+const KickTable I_KICKS = {
   { // rot 0
     { 0, 0},
     {-1, 0},
@@ -151,7 +153,7 @@ void rotate_mino(GPoint *new_block, GPoint *old_block, int block_type, int rotat
 }
 
 bool rotate_try_kicks(GPoint *new_block, GPoint *old_block, int block_type, int old_rotation, int new_rotation, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]){
-  const GPoint const (*kick_registry)[4][5] = (block_type == LINE) ? &I_KICKS : &JLSTZ_KICKS;
+  const KickTable *kick_registry = (block_type == I) ? &I_KICKS : &JLSTZ_KICKS;
 
   // look through each offset option
   for(int i=0; i<5; i++){ 
@@ -165,8 +167,8 @@ bool rotate_try_kicks(GPoint *new_block, GPoint *old_block, int block_type, int 
       mino_try[j].y += (*kick_registry)[old_rotation][i].y - (*kick_registry)[new_rotation][i].y;
 
       // is it in bounds?
-      if(mino_try[j].x <  0  || mino_try[j].y <  0) { break; }
-      if(mino_try[j].x >= 10 || mino_try[j].y >= 20) { break; }
+      if(mino_try[j].x < 0) { break; } // Removed restriction on pieces going beyond top of game grid (y<0)
+      if(mino_try[j].x >= GAME_GRID_BLOCK_WIDTH || mino_try[j].y >= GAME_GRID_BLOCK_HEIGHT) { break; }
 
       // is it overlapping anything else
       if(grid[mino_try[j].x][mino_try[j].y]) { break; }
@@ -206,8 +208,8 @@ int find_max_drop (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLO
 
 // Just to make the 'next block' display nice and centered for blocks which have even width
 int next_block_offset (int block_type) {
-  if (block_type == SQUARE) { return BLOCK_SIZE/2; }
-  if (block_type == LINE) { return -BLOCK_SIZE/2; }
+  if (block_type == O) { return  BLOCK_SIZE/2; }
+  if (block_type == I) { return -BLOCK_SIZE/2; }
   else { return 0; }
 }
 

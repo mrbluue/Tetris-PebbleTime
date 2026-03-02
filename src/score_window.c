@@ -85,6 +85,8 @@ static void prv_window_load(Window *window){
 
   window_set_background_color(window, theme.window_bg_color);
 
+  s_showing_details = false;
+
   GRect bounds = layer_get_bounds(window_layer);
   int16_t bounds_width = bounds.size.w;
   int16_t bounds_height = bounds.size.h;
@@ -145,9 +147,9 @@ static void prv_window_unload(Window *window){
 static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   // BACKGROUND
   graphics_context_set_fill_color(ctx, theme.window_bg_color);
-  graphics_fill_rect(ctx, GRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 0, GCornerNone);
+  graphics_fill_rect(ctx, GRect(0, 0, PBL_DISPLAY_WIDTH, PBL_DISPLAY_HEIGHT), 0, GCornerNone);
 
-  GRect dialog_box = GRect(PBL_IF_ROUND_ELSE(24, 8), 45, SCREEN_WIDTH - PBL_IF_ROUND_ELSE(48, 16), SCREEN_HEIGHT - 90);
+  GRect dialog_box = GRect(PBL_IF_ROUND_ELSE(24, 8), 45, PBL_DISPLAY_WIDTH - PBL_IF_ROUND_ELSE(48, 16), PBL_DISPLAY_HEIGHT - 90);
   
   graphics_context_set_stroke_color(ctx, GColorWhite);
   graphics_context_set_fill_color(ctx, GColorBlack);
@@ -155,9 +157,9 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   graphics_draw_rect(ctx, dialog_box);
 
   // LETTERS INPUT
-  GRect let1_box = GRect(SCREEN_WIDTH/2 - (INPUT_FONT_SIZE * 2.5), SCREEN_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
-  GRect let2_box = GRect(SCREEN_WIDTH/2 - (INPUT_FONT_SIZE * 0.5), SCREEN_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
-  GRect let3_box = GRect(SCREEN_WIDTH/2 + (INPUT_FONT_SIZE * 1.5), SCREEN_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
+  GRect let1_box = GRect(PBL_DISPLAY_WIDTH/2 - (INPUT_FONT_SIZE * 2.5), PBL_DISPLAY_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
+  GRect let2_box = GRect(PBL_DISPLAY_WIDTH/2 - (INPUT_FONT_SIZE * 0.5), PBL_DISPLAY_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
+  GRect let3_box = GRect(PBL_DISPLAY_WIDTH/2 + (INPUT_FONT_SIZE * 1.5), PBL_DISPLAY_HEIGHT/2 - (INPUT_FONT_SIZE * 0.5) + 5, INPUT_FONT_SIZE, INPUT_FONT_SIZE);
 
   char let1[2] = { s_new_score_name[0], '\0' };
   char let2[2] = { s_new_score_name[1], '\0' };
@@ -172,8 +174,8 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   
   // ^ UP arrow
   GPoint selector[3];
-  int x_off = SCREEN_WIDTH / 2 - (INPUT_FONT_SIZE * 2) - 2 + s_current_char * (INPUT_FONT_SIZE * 2);
-  int y_off = SCREEN_HEIGHT / 2 - INPUT_FONT_SIZE + 5;
+  int x_off = PBL_DISPLAY_WIDTH / 2 - (INPUT_FONT_SIZE * 2) - 2 + s_current_char * (INPUT_FONT_SIZE * 2);
+  int y_off = PBL_DISPLAY_HEIGHT / 2 - INPUT_FONT_SIZE + 5;
   selector[0] = GPoint(x_off - 6, y_off); 
   selector[1] = GPoint(x_off + 6, y_off);
   selector[2] = GPoint(x_off,     y_off - 12);
@@ -182,7 +184,7 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   gpath_draw_filled(ctx, s_selector_path);
   
   // V DOWN arrow
-  y_off = SCREEN_HEIGHT/2 + INPUT_FONT_SIZE + 5;
+  y_off = PBL_DISPLAY_HEIGHT/2 + INPUT_FONT_SIZE + 5;
   selector[0] = GPoint(x_off - 6, y_off); 
   selector[1] = GPoint(x_off + 6, y_off);
   selector[2] = GPoint(x_off,     y_off + 12);
@@ -191,7 +193,7 @@ static void prv_draw_name_select(Layer *layer, GContext *ctx) {
   gpath_draw_filled(ctx, s_selector_path);
   
   // HEADER TITLE
-  GRect header = GRect(NAME_INPUT_PAD, 50, SCREEN_WIDTH - (NAME_INPUT_PAD*2), 16);
+  GRect header = GRect(NAME_INPUT_PAD, 50, PBL_DISPLAY_WIDTH - (NAME_INPUT_PAD*2), 16);
   graphics_draw_text(ctx, "ENTER YOUR NAME", s_font_mono, header, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
 }
 

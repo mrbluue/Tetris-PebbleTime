@@ -3,13 +3,6 @@
 
 #include <pebble.h>
 
-#define SQUARE 0
-#define LINE   1
-#define J      2
-#define L      3
-#define S      4
-#define Z      5
-#define T      6
 
 #define LEFT -1
 #define RIGHT 1
@@ -26,21 +19,21 @@
 #define GAME_NAME_KEY          737415561
 
 #ifdef PBL_PLATFORM_EMERY
-  #define SCREEN_WIDTH 200
-  #define SCREEN_HEIGHT 228
   #define BLOCK_SIZE 11
-#elif defined (PBL_PLATFORM_CHALK)
-  #define SCREEN_WIDTH 180
-  #define SCREEN_HEIGHT 180
-  #define BLOCK_SIZE 8 
+#elif defined (PBL_PLATFORM_GABBRO)
+  #define BLOCK_SIZE 12
 #else
-  #define SCREEN_WIDTH 144
-  #define SCREEN_HEIGHT 168
   #define BLOCK_SIZE 8 
 #endif
 
 #define THEMES_COUNT 4
 #define THEMES_BYTES 18
+
+typedef enum {
+   NONE = -1, 
+   O, I, J, L, S, Z, T, 
+   BLOCK_TYPES
+} Tetromino;
 
 typedef struct {
   bool set_drop_shadow;
@@ -58,7 +51,7 @@ typedef struct {
   GColor grid_bg_color;
   #ifdef PBL_COLOR
   GColor grid_lines_color;
-  GColor block_color[7];
+  GColor block_color[BLOCK_TYPES];
   GColor block_border_color;
   GColor drop_shadow_color;
   GColor select_color;
