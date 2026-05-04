@@ -14,6 +14,12 @@ static uint8_t s_grid_colors[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT];
 static Tetromino s_mino_bag[BLOCK_TYPES];
 static Tetromino s_mino_bag_index;
 
+static GPoint next_block[4];
+
+#ifdef CAPABILITY_HELD_BLOCK
+  static GPoint held_block[4];
+#endif
+
 static bool s_pause_from_focus = false;
 static bool s_pause_lock_delay = false;
 
@@ -49,6 +55,11 @@ static TextLayer *s_level_layer;
 static TextLayer *s_lines_layer;
 static TextLayer *s_paused_label_layer;
 
+#ifdef PBL_PLATFORM_EMERY
+  static TextLayer *s_next_layer;
+  static TextLayer *s_held_layer;
+#endif
+
 #ifdef PBL_BW
 static GBitmap *s_bw_spritesheet;
 static GBitmap *s_bw_block_sprites[7];
@@ -62,6 +73,10 @@ static void prv_window_unload(Window *window);
 static void prv_app_focus_handler(bool focus);
 
 static void prv_click_config_provider(void *context);
+#ifdef PBL_TOUCH
+  GPoint touchdown;
+  static void touch_handler(const TouchEvent *event, void *context);
+#endif
 
 static void prv_draw_game(Layer *layer, GContext *ctx);
 static void prv_draw_bg(Layer *layer, GContext *ctx);
@@ -71,6 +86,9 @@ static void prv_draw_bg(Layer *layer, GContext *ctx);
 
 static void prv_game_cycle();
 static bool prv_can_drop();
+#ifdef CAPABILITY_HELD_BLOCK
+  static void prv_hold_block();
+#endif
 static void prv_game_move_piece(int movement);
 static void prv_game_rotate_piece();
 static void prv_reset_lock_delay();
@@ -91,6 +109,7 @@ static void prv_setup_game();
 static void prv_load_game();
 static void prv_quit_after_loss();
 static void prv_save_game();
+static void prv_migrate_v1_save();
 
 // -------------------------- //
 // **** WINDOW FUNCTIONS **** //
@@ -178,6 +197,24 @@ static void prv_window_load(Window *window) {
   text_layer_set_text_color(s_paused_label_layer, theme.window_label_text_color);
   text_layer_set_text_alignment(s_paused_label_layer, GTextAlignmentCenter);
 
+  #ifdef PBL_PLATFORM_EMERY
+    s_next_layer = text_layer_create(GRect(LABEL_X, BLOCK_SIZE*3.5, LABEL_WIDTH, 20));
+    text_layer_set_text(s_next_layer, "NEXT");
+    text_layer_set_font(s_next_layer, s_font_mono);
+    text_layer_set_background_color(s_next_layer, GColorClear);
+    text_layer_set_text_color(s_next_layer, theme.window_header_color);
+    text_layer_set_text_alignment(s_next_layer, GTextAlignmentCenter);
+    layer_add_child(window_layer, text_layer_get_layer(s_next_layer));
+
+    s_held_layer = text_layer_create(GRect(LABEL_X, BLOCK_SIZE*8, LABEL_WIDTH, 20));
+    text_layer_set_text(s_held_layer, "HELD");
+    text_layer_set_font(s_held_layer, s_font_mono);
+    text_layer_set_background_color(s_held_layer, GColorClear);
+    text_layer_set_text_color(s_held_layer, theme.window_header_color);
+    text_layer_set_text_alignment(s_held_layer, GTextAlignmentCenter);
+    layer_add_child(window_layer, text_layer_get_layer(s_held_layer));
+  #endif
+
   #ifdef PBL_BW
     s_bw_spritesheet = gbitmap_create_with_resource(RESOURCE_ID_SPRITES_BW);
     for(int i=0; i<7; i++){
@@ -188,11 +225,18 @@ static void prv_window_load(Window *window) {
   #endif
 
   app_focus_service_subscribe(prv_app_focus_handler);
+  
+  #if defined(PBL_TOUCH)
+    touch_service_subscribe(touch_handler, NULL);
+  #endif
 }
 
 static void prv_window_unload(Window *window) {
   app_focus_service_unsubscribe();
-  
+  #ifdef PBL_TOUCH
+    touch_service_unsubscribe();
+  #endif
+
   s_game_timer      = NULL;
   s_longpress_timer = NULL;
   s_lockdelay_timer = NULL;
@@ -204,6 +248,12 @@ static void prv_window_unload(Window *window) {
   text_layer_destroy(s_level_layer);
   text_layer_destroy(s_lines_layer);
   text_layer_destroy(s_paused_label_layer);
+  
+  #ifdef PBL_PLATFORM_EMERY
+    text_layer_destroy(s_next_layer);
+    text_layer_destroy(s_held_layer);
+  #endif
+  
   layer_destroy(s_bg_layer);
   layer_destroy(s_game_pane_layer);
 
@@ -337,6 +387,66 @@ static void prv_click_config_provider(void *context) {
   window_long_click_subscribe(BUTTON_ID_UP, 200, prv_up_long_click_handler, prv_up_long_release_handler);
 }
 
+#ifdef PBL_TOUCH
+  static void touch_handler(const TouchEvent *event, void *context) {
+    switch (event->type) {
+      case TouchEvent_Touchdown:
+        // TODO: get touchdown position
+        touchdown = GPoint(event->x, event->y);
+        break;
+      case TouchEvent_PositionUpdate:
+        // Nothing here 
+        break;
+      case TouchEvent_Liftoff:
+        // TODO: if liftoff is far enough from touchdown within timer
+        //  => move block a bunch instead, in correct direction
+
+        if(s_game_state.block_type == NONE) { return; }
+        if(s_status != GameStatusPlaying)   { return; }
+        // if(s_lockdelay_timer)               { return; }
+
+        // HARD MOVE 
+        if (touchdown.x != 0) {
+          int distance_x = event->x - touchdown.x;
+          int distance_y = event->y - touchdown.y;
+
+          int direction = 0;
+
+          if(distance_x > PBL_DISPLAY_WIDTH * 0.3) {
+            direction = RIGHT;            
+          } else if(abs(distance_x) > PBL_DISPLAY_WIDTH * 0.3) {
+            direction = LEFT;            
+          } 
+          
+          if(direction != 0) {
+            int move_amount = find_max_horiz_move(s_game_state.block, s_grid_blocks, direction);
+            for (int i=0; i<4; i++) {
+              s_game_state.block[i].x += move_amount * direction;
+            }
+            return;
+          } else if (distance_y > PBL_DISPLAY_WIDTH * 0.3) {
+            int drop_amount = find_max_drop(s_game_state.block, s_grid_blocks);
+            for (int i=0; i<4; i++) {
+              s_game_state.block[i].y += drop_amount;
+            }
+            return;
+          }
+
+        }
+
+        // HOLD BLOCK
+
+        // Edge rejection
+        if(event->x < TOUCH_MARGIN || event->x > PBL_DISPLAY_WIDTH - TOUCH_MARGIN) { return; }
+        if(event->y < TOUCH_MARGIN || event->y > PBL_DISPLAY_HEIGHT - TOUCH_MARGIN) { return; }
+
+        prv_hold_block();
+
+        break;
+    }
+  }
+#endif
+
 // ------------------------ //
 // **** DRAW FUNCTIONS **** //
 // ------------------------ //
@@ -364,6 +474,7 @@ static void prv_draw_game(Layer *layer, GContext *ctx) {
       #endif
     }
   }
+
   // Draw the actual block.
   #ifdef PBL_COLOR
     graphics_context_set_stroke_color(ctx, theme.block_border_color);
@@ -422,6 +533,8 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
     }
   }
 
+  // NEXT BLOCK
+
   #ifdef PBL_BW
     // BG for upcoming block view
     graphics_context_set_fill_color(ctx, GColorWhite);
@@ -435,16 +548,16 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
   #endif
 
   #if defined(PBL_ROUND)
-    int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + BLOCK_SIZE * 2) + next_block_offset(s_game_state.next_block_type);
-    int sPosY =  GRID_ORIGIN_Y + BLOCK_SIZE * 5;
+    int sPosX = NEXT_BLOCK_X + next_block_offset(s_game_state.next_block_type);
+    int sPosY = NEXT_BLOCK_Y;
   #else
     // for rectangular screen, center the next block display in the right pane
-    int sPosX = (GRID_ORIGIN_X + GRID_PIXEL_WIDTH + (bounds_width - (GRID_ORIGIN_X + GRID_PIXEL_WIDTH)) / 2) + next_block_offset(s_game_state.next_block_type) - BLOCK_SIZE/2;
-    int sPosY =  GRID_ORIGIN_Y + BLOCK_SIZE * (s_game_state.next_block_type == I ? 2 : 2.5);
+    int sPosX = NEXT_BLOCK_X + next_block_offset(s_game_state.next_block_type);
+    int sPosY = NEXT_BLOCK_Y + BLOCK_SIZE * (s_game_state.next_block_type == I ? 0 : 0.5);
   #endif
 
   for (int i=0; i<4; i++) {
-    GRect bl = GRect(sPosX+(s_game_state.next_block[i].x * BLOCK_SIZE), sPosY+(s_game_state.next_block[i].y * BLOCK_SIZE), BLOCK_SIZE, BLOCK_SIZE);
+    GRect bl = GRect(sPosX+(next_block[i].x * BLOCK_SIZE), sPosY+(next_block[i].y * BLOCK_SIZE), BLOCK_SIZE, BLOCK_SIZE);
     #ifdef PBL_COLOR
       graphics_fill_rect(ctx, bl, 0, GCornerNone);
       graphics_draw_rect(ctx, bl);
@@ -452,6 +565,34 @@ static void prv_draw_bg(Layer *layer, GContext *ctx) {
       prv_draw_bw_block(ctx, bl, s_game_state.next_block_type);
     #endif
   }
+
+  // HELD BLOCK
+  
+  #ifdef CAPABILITY_HELD_BLOCK
+    #ifdef PBL_COLOR
+      graphics_context_set_fill_color(ctx, theme.block_color[s_game_state.held_block_type]);
+    #endif
+
+    if(s_game_state.held_block_type != NONE) {
+      #if defined(PBL_ROUND)
+        sPosX = HELD_BLOCK_X + next_block_offset(s_game_state.held_block_type);
+        sPosY = NEXT_BLOCK_Y;
+      #else
+        sPosX = NEXT_BLOCK_X + next_block_offset(s_game_state.held_block_type);
+        sPosY = NEXT_BLOCK_Y + BLOCK_SIZE*4.5 + BLOCK_SIZE * (s_game_state.held_block_type == I ? 0 : 0.5);
+      #endif
+
+      for (int i=0; i<4; i++) {
+        GRect bl = GRect(sPosX+(held_block[i].x * BLOCK_SIZE), sPosY+(held_block[i].y * BLOCK_SIZE), BLOCK_SIZE, BLOCK_SIZE);
+        #ifdef PBL_COLOR
+          graphics_fill_rect(ctx, bl, 0, GCornerNone);
+          graphics_draw_rect(ctx, bl);
+        #else
+          prv_draw_bw_block(ctx, bl, s_game_state.held_block_type);
+        #endif
+      }
+    }
+  #endif
 
   // Game BG grid.
   #ifdef PBL_COLOR
@@ -484,6 +625,7 @@ static void prv_game_cycle() {
     s_game_state.rotation = 0;
     s_game_state.block_type = s_game_state.next_block_type;
     s_game_state.next_block_type = prv_get_next_piece();
+    s_game_state.can_hold_block = true;
 
     GPoint new_block_pos = s_game_state.block_type == I ? GPoint(4, 0) : GPoint(5, 1);
 
@@ -491,7 +633,7 @@ static void prv_game_cycle() {
 
     prv_check_block_out(s_game_state.block);
 
-    make_block(s_game_state.next_block, s_game_state.next_block_type, 0, 0);
+    make_block(next_block, s_game_state.next_block_type, 0, 0);
   }
   else {
     // Handle the current block.
@@ -532,6 +674,43 @@ static bool prv_can_drop(){
 
   return can_drop;
 }
+
+#ifdef CAPABILITY_HELD_BLOCK
+static void prv_hold_block(){
+  if(!s_game_state.can_hold_block)    { return; }
+
+  int buffer = s_game_state.held_block_type;
+  
+  s_game_state.held_block_type = s_game_state.block_type;
+  s_game_state.block_type = buffer;
+  
+  s_game_state.can_hold_block = false;
+  
+  make_block(held_block, s_game_state.held_block_type, 0, 0);
+
+  if(s_game_state.block_type != NONE) { 
+    GPoint new_block_pos = s_game_state.block_type == I ? GPoint(4, 0) : GPoint(5, 1);
+
+    make_block(s_game_state.block, s_game_state.block_type, new_block_pos.x, new_block_pos.y);
+
+  } else {
+    // Same as game_cycle(): block == NONE, but we don't reset s_game_state.can_hold_block
+    s_game_state.rotation = 0;
+    s_game_state.block_type = s_game_state.next_block_type;
+    s_game_state.next_block_type = prv_get_next_piece();
+
+    GPoint new_block_pos = s_game_state.block_type == I ? GPoint(4, 0) : GPoint(5, 1);
+
+    make_block(s_game_state.block, s_game_state.block_type, new_block_pos.x, new_block_pos.y);
+
+    prv_check_block_out(s_game_state.block);
+
+    make_block(next_block, s_game_state.next_block_type, 0, 0);
+  }
+
+  layer_mark_dirty(s_game_pane_layer);
+}
+#endif
 
 static void prv_game_move_piece(int movement){
   if (s_status != GameStatusPlaying) { return; }
@@ -808,6 +987,8 @@ static void prv_setup_game() {
   
   s_game_state.block_type = NONE;
   s_game_state.next_block_type = prv_get_next_piece();
+  s_game_state.held_block_type = NONE;
+  s_game_state.can_hold_block = true;
 
   for (int i=0; i<GAME_GRID_BLOCK_WIDTH; i++) {
     for (int j=0; j<GAME_GRID_BLOCK_HEIGHT; j++) {
@@ -830,7 +1011,13 @@ static void prv_load_game() {
 
   if (persist_exists(GAME_STATE_KEY)){
     APP_LOG(APP_LOG_LEVEL_INFO, "Reading saved data");
-    persist_read_data(GAME_STATE_KEY, &s_game_state, sizeof(GameState));
+
+    // DEALING WITH V1 SAVES (= no known GAME_SAVE_VERSION)
+    if(!persist_exists(GAME_SAVE_VERSION_KEY)) {
+      prv_migrate_v1_save();
+    } else {
+      persist_read_data(GAME_STATE_KEY, &s_game_state, sizeof(GameState));
+    }
     persist_read_data(GAME_GRID_BLOCK_KEY, &s_grid_blocks, sizeof(s_grid_blocks));
     persist_read_data(GAME_GRID_COLOR_KEY, &s_grid_colors, sizeof(s_grid_colors));
   } else {
@@ -842,6 +1029,14 @@ static void prv_load_game() {
   update_string_num_layer("SCORE\n", s_game_state.score, s_score_str, sizeof(s_score_str), s_score_layer);
   update_string_num_layer("LV.",     s_game_state.level, s_level_str, sizeof(s_level_str), s_level_layer);
   update_string_num_layer("LINES\n", s_game_state.lines_cleared, s_lines_str, sizeof(s_lines_str), s_lines_layer);
+
+  make_block(next_block, s_game_state.next_block_type, 0, 0);
+
+  #ifdef CAPABILITY_HELD_BLOCK
+    if(s_game_state.held_block_type != NONE){
+      make_block(held_block, s_game_state.held_block_type, 0, 0);
+    }
+  #endif
 
   s_tick_time = s_max_tick - (s_tick_interval * s_game_state.level);
 }
@@ -858,6 +1053,7 @@ static void prv_quit_after_loss() {
 
 static void prv_save_game() {
   if(s_status != GameStatusLost) {
+    persist_write_int(GAME_SAVE_VERSION_KEY, GAME_SAVE_VERSION);
     persist_write_data(GAME_STATE_KEY, &s_game_state, sizeof(GameState));
     persist_write_data(GAME_GRID_BLOCK_KEY, &s_grid_blocks, sizeof(s_grid_blocks)); // the GRID arrays are too big to fit with the rest of the game state
     persist_write_data(GAME_GRID_COLOR_KEY, &s_grid_colors, sizeof(s_grid_colors)); // ...as the persist keys can only each hold 256 bytes 
@@ -866,9 +1062,36 @@ static void prv_save_game() {
     return;
   } else {
     APP_LOG(APP_LOG_LEVEL_INFO, "DELETING SAVE");
+    persist_delete(GAME_SAVE_VERSION_KEY);
     persist_delete(GAME_STATE_KEY);
     persist_delete(GAME_GRID_BLOCK_KEY);
     persist_delete(GAME_GRID_COLOR_KEY);
     persist_write_bool(GAME_CONTINUE_KEY, false);
   }
+}
+
+static void prv_migrate_v1_save() {
+  typedef struct {
+    GPoint block[4];
+    GPoint next_block[4];
+    uint8_t rotation;
+    int8_t block_type;
+    int8_t next_block_type;
+    uint16_t lines_cleared;
+    uint8_t level;
+    uint32_t score;
+  } GameState_v1;
+
+  GameState_v1 old;
+
+  persist_read_data(GAME_STATE_KEY, &old, sizeof(GameState_v1));
+
+  memcpy(s_game_state.block, old.block, sizeof(old.block));
+
+  s_game_state.rotation        = old.rotation;
+  s_game_state.block_type      = old.block_type;
+  s_game_state.next_block_type = old.next_block_type;
+  s_game_state.lines_cleared   = old.lines_cleared;
+  s_game_state.level           = old.level;
+  s_game_state.score           = old.score;
 }

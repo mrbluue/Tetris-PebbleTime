@@ -10,6 +10,9 @@
 #define GAME_GRID_BLOCK_WIDTH 10
 #define GAME_GRID_BLOCK_HEIGHT 20
 
+#define GAME_SAVE_VERSION  2
+
+#define GAME_SAVE_VERSION_KEY  737
 #define GAME_STATE_KEY         737415
 #define GAME_GRID_BLOCK_KEY    737415810
 #define GAME_GRID_COLOR_KEY    737415601
@@ -76,6 +79,8 @@ void rotate_mino(GPoint *new_block, GPoint *old_block, int block_type, int rotat
 bool rotate_try_kicks(GPoint *new_block, GPoint *old_block, int block_type, int old_rotation, int new_rotation, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]);
 
 int find_max_drop (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT]);
+
+int find_max_horiz_move (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT], int direction);
 
 int next_block_offset (int block_type);
 

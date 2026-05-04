@@ -206,6 +206,22 @@ int find_max_drop (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLO
   return drop_amount;
 }
 
+int find_max_horiz_move (GPoint *block, bool grid[GAME_GRID_BLOCK_WIDTH][GAME_GRID_BLOCK_HEIGHT], int direction) {
+  bool can_move = true;
+  int move_amount = 0;
+  while (can_move) {
+    for (int i=0; i<4; i++) {
+      int side = block[i].x + direction * (1 + move_amount);
+      if (side < 0 || side > 9) { can_move = false; }
+      if (grid[side][block[i].y]) { can_move = false; }
+    }
+    if (can_move) {
+      move_amount += 1;
+    }
+  }
+  return move_amount;
+}
+
 // Just to make the 'next block' display nice and centered for blocks which have even width
 int next_block_offset (int block_type) {
   if (block_type == O) { return  BLOCK_SIZE/2; }
