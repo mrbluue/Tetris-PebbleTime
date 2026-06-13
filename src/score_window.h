@@ -29,6 +29,7 @@ typedef struct {
   uint32_t score;
   uint8_t level;
   char date[10];
+  bool is_imported; // For future import/export feature, preventing fake imported from being counted for future leaderboard!
 } GameScore;
 
 void new_score_window_push(uint32_t new_score, uint8_t level);

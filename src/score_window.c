@@ -43,6 +43,8 @@ static char * prv_get_details_string(int i);
 static void prv_show_scores();
 static void prv_show_details();
 
+static void prv_migrate_v1_scores();
+
 // -------------------------- //
 // **** WINDOW FUNCTIONS **** //
 // -------------------------- //
@@ -59,7 +61,7 @@ void new_score_window_push(uint32_t new_score, uint8_t level) {
     layer_set_hidden(s_name_picker_layer, true);
     return;
   }
-  persist_read_string(GAME_NAME_KEY, s_new_score_name, 4);
+  persist_read_string(GAME_SCORES_NAME_KEY, s_new_score_name, 4);
 }
 
 void all_scores_window_push() {
@@ -216,7 +218,7 @@ static void prv_back_click_handler(ClickRecognizerRef recognizer, void *context)
 static void prv_select_click_handler(ClickRecognizerRef recognizer, void *context) {
   if(!layer_get_hidden(s_name_picker_layer)){
     if(s_current_char == 2) {
-      persist_write_string(GAME_NAME_KEY, s_new_score_name);
+      persist_write_string(GAME_SCORES_NAME_KEY, s_new_score_name);
       prv_add_new_score(s_new_score);
       layer_set_hidden(s_name_picker_layer, true);
     } else if(s_current_char < 2)
@@ -283,10 +285,16 @@ static void prv_click_config_provider(void *context) {
 static void prv_load_scores(){
   if (persist_exists(GAME_SCORES_KEY)){
     APP_LOG(APP_LOG_LEVEL_INFO, "Reading saved score data");
-    persist_read_data(GAME_SCORES_KEY, &s_game_scores, sizeof(s_game_scores));
+    if (persist_exists(GAME_SCORES_VERSION_KEY)){
+      persist_read_data(GAME_SCORES_KEY, &s_game_scores, sizeof(s_game_scores));
+    } else {
+      APP_LOG(APP_LOG_LEVEL_INFO, "Migrating scores from V1 data");
+      prv_migrate_v1_scores();
+    }
     s_scores_exist_bool = true;
   } else {
     APP_LOG(APP_LOG_LEVEL_INFO, "Found no saved score data");
+    persist_write_int(GAME_SCORES_VERSION_KEY, GAME_SCORES_VERSION);
   }
 }
 
@@ -343,6 +351,7 @@ static void prv_add_new_score(){
 
   s_game_scores[pos].score = s_new_score;
   s_game_scores[pos].level = s_new_score_level;
+  s_game_scores[pos].is_imported = false;
   
   time_t now = time(NULL);
   struct tm *t = localtime(&now);
@@ -363,4 +372,28 @@ static char * prv_get_score_string(int i){
 static char * prv_get_details_string(int i){
   snprintf(s_game_details_strings[i], sizeof(s_game_details_strings[i]), "%d.LV.%02d-%s", i+1, s_game_scores[i].level, s_game_scores[i].date);
   return s_game_details_strings[i];
+}
+
+static void prv_migrate_v1_scores() {
+  typedef struct {
+    char name[4];
+    uint32_t score;
+    uint8_t level;
+    char date[10];
+  } GameScore_v1;
+
+  GameScore_v1 old[MAX_SCORES_SHOWN];
+
+  persist_read_data(GAME_SCORES_KEY, &old, sizeof(old));
+
+  for (int i=0; i<MAX_SCORES_SHOWN; i++) {
+    memcpy(s_game_scores[i].name, old[i].name, sizeof(old[i].name));
+    memcpy(s_game_scores[i].date, old[i].date, sizeof(old[i].date));
+    s_game_scores[i].score = old[i].score;
+    s_game_scores[i].level = old[i].level;
+    s_game_scores[i].is_imported = false;
+  }
+
+  persist_write_int(GAME_SCORES_VERSION_KEY, GAME_SCORES_VERSION);
+  persist_write_data(GAME_SCORES_KEY, &s_game_scores, sizeof(s_game_scores));
 }
