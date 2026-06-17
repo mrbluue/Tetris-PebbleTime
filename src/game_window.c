@@ -75,7 +75,13 @@ static void prv_app_focus_handler(bool focus);
 static void prv_click_config_provider(void *context);
 #ifdef PBL_TOUCH
   GPoint touchdown;
+  GPoint touch_update;
   static void touch_handler(const TouchEvent *event, void *context);
+
+  static AppTimer *s_touchdown_timer = NULL;
+  static int s_touchdown_tick = 400;
+  static void prv_touchdown_tick(void *data);
+  static bool s_extend_lock_delay_from_touch = false;
 #endif
 
 static void prv_draw_game(Layer *layer, GContext *ctx);
@@ -226,8 +232,10 @@ static void prv_window_load(Window *window) {
 
   app_focus_service_subscribe(prv_app_focus_handler);
   
-  #if defined(PBL_TOUCH)
+  #ifdef PBL_TOUCH
     touch_service_subscribe(touch_handler, NULL);
+    touchdown = GPointZero;
+    touch_update = GPointZero;
   #endif
 }
 
@@ -391,30 +399,37 @@ static void prv_click_config_provider(void *context) {
   static void touch_handler(const TouchEvent *event, void *context) {
     switch (event->type) {
       case TouchEvent_Touchdown:
-        // TODO: get touchdown position
-        touchdown = GPoint(event->x, event->y);
+        touchdown    = GPoint(event->x, event->y);
+        touch_update = GPoint(event->x, event->y);
+
+        if(s_touchdown_timer == NULL) {
+          s_touchdown_timer = app_timer_register(s_touchdown_tick, prv_touchdown_tick, NULL);
+          if(s_lockdelay_timer != NULL) {
+            s_extend_lock_delay_from_touch = false;
+          }
+        }
         break;
       case TouchEvent_PositionUpdate:
-        // Nothing here 
+        touch_update = GPoint(event->x, event->y);
         break;
       case TouchEvent_Liftoff:
-        // TODO: if liftoff is far enough from touchdown within timer
-        //  => move block a bunch instead, in correct direction
-
         if(s_game_state.block_type == NONE) { return; }
         if(s_status != GameStatusPlaying)   { return; }
-        // if(s_lockdelay_timer)               { return; }
+
+        touch_update = GPointZero;
 
         // HARD MOVE 
-        if (touchdown.x != 0) {
+        if (touchdown.x != 0 && touchdown.y != 0) {
           int distance_x = event->x - touchdown.x;
           int distance_y = event->y - touchdown.y;
 
           int direction = 0;
 
-          if(distance_x > PBL_DISPLAY_WIDTH * 0.3) {
+          bool do_movement = false;
+
+          if(distance_x > BLOCK_SIZE * 2) {
             direction = RIGHT;            
-          } else if(abs(distance_x) > PBL_DISPLAY_WIDTH * 0.3) {
+          } else if(abs(distance_x) > BLOCK_SIZE * 2) {
             direction = LEFT;            
           } 
           
@@ -423,24 +438,26 @@ static void prv_click_config_provider(void *context) {
             for (int i=0; i<4; i++) {
               s_game_state.block[i].x += move_amount * direction;
             }
-            return;
-          } else if (distance_y > PBL_DISPLAY_WIDTH * 0.3) {
+            do_movement = true;
+          } else if (distance_y > BLOCK_SIZE * 2) {
             int drop_amount = find_max_drop(s_game_state.block, s_grid_blocks);
             for (int i=0; i<4; i++) {
               s_game_state.block[i].y += drop_amount;
             }
-            return;
+            do_movement = true;
           }
 
+          touchdown = GPointZero;
+
+          if(do_movement) {
+            if(s_touchdown_timer != NULL) {
+              app_timer_cancel(s_touchdown_timer);
+              s_touchdown_timer = NULL;
+            }
+            layer_mark_dirty(s_game_pane_layer);
+            return;
+          }
         }
-
-        // HOLD BLOCK
-
-        // Edge rejection
-        if(event->x < TOUCH_MARGIN || event->x > PBL_DISPLAY_WIDTH - TOUCH_MARGIN) { return; }
-        if(event->y < TOUCH_MARGIN || event->y > PBL_DISPLAY_HEIGHT - TOUCH_MARGIN) { return; }
-
-        prv_hold_block();
 
         break;
     }
@@ -709,6 +726,9 @@ static void prv_hold_block(){
   }
 
   layer_mark_dirty(s_game_pane_layer);
+
+  // Making sure the replaced mino isnt going to drop in a ms, resetting the timer for game cycle
+  app_timer_reschedule(s_game_timer, s_tick_time);
 }
 #endif
 
@@ -950,8 +970,25 @@ static void prv_s_longpress_tick(void *data) {
 static void prv_lockdelay_tick(void *data) {
   if (s_status != GameStatusPlaying) { return; }
 
+  #ifdef PBL_TOUCH
+    // if we're pressing down to hold a block, extend lock_delay once
+    if(s_touchdown_timer != NULL && !s_extend_lock_delay_from_touch) {
+      s_lockdelay_timer = app_timer_register(s_lockdelay_tick*0.3, prv_lockdelay_tick, NULL);
+      s_extend_lock_delay_from_touch = true;
+      return;
+    }
+  #endif
+  
   prv_lock_piece();
+
   s_lockdelay_timer = NULL;
+
+  #ifdef PBL_TOUCH
+    if(s_touchdown_timer != NULL) {
+      app_timer_cancel(s_touchdown_timer);
+      s_touchdown_timer = NULL;
+    }
+  #endif
 }
 
 static void prv_flash_tick(void *data) {
@@ -970,6 +1007,26 @@ static void prv_flash_tick(void *data) {
   layer_mark_dirty(s_bg_layer);
   s_flash_timer = app_timer_register(s_flash_tick, prv_flash_tick, NULL);
 }
+
+#ifdef PBL_TOUCH
+  static void prv_touchdown_tick(void *data) {
+    s_touchdown_timer = NULL;
+    if (s_status != GameStatusPlaying) { return; }
+    if (s_game_state.block_type == NONE) { return; }
+    if (touchdown.x == 0 && touchdown.y == 0) { return; }
+    if (touchdown.x < TOUCH_MARGIN || touchdown.x > PBL_DISPLAY_WIDTH - TOUCH_MARGIN) { return; }
+    if (touchdown.y < TOUCH_MARGIN || touchdown.y > PBL_DISPLAY_HEIGHT - TOUCH_MARGIN) { return; }
+
+    // Prevent long swipes from being recorded as long taps
+    int distance_x = touch_update.x - touchdown.x;
+    int distance_y = touch_update.y - touchdown.y;
+
+    if(abs(distance_x) > BLOCK_SIZE * 4 || abs(distance_y) > BLOCK_SIZE * 4) { return; }
+
+    prv_hold_block();
+    touchdown = GPointZero;
+  }
+#endif
 
 // -------------------------- //
 // ***** DATA FUNCTIONS ***** //
